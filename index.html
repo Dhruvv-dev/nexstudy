@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NEXSTUDY — Your World. Your Growth.</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <body>
+    <body>
+  <!-- BEAUTIFUL BACKGROUND ANIMATION -->
+  <div class="animation-area">
+    <ul class="box-area">
+      <li></li>
+      <li></li>
+      <li></li>
+      <li></li>
+      <li></li>
+      <li></li>
+    </ul>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  
+  <!-- Animated Background Shapes -->
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+
+  <div id="toast" class="toast"></div>
+  <div id="toast" class="toast"></div>
+
+  <!-- LOGIN / REGISTER -->
+  <main id="authScreen" class="auth-screen">
+    <section class="auth-intro">
+      <div class="wordmark">NEXSTUDY</div>
+      <p class="eyebrow">YOUR WORLD. YOUR GROWTH.</p>
+      <h1>Your student life. <span>One workspace.</span></h1>
+      <p class="muted">Learn, organize, practice and grow with your college community.</p>
+      <div class="intro-points">
+        <p>✦ Organize your academics</p>
+        <p>✦ Challenge yourself every day</p>
+        <p>✦ Learn with your community</p>
+      </div>
+    </section>
+
+    <section class="auth-card glass">
+      <div class="auth-tabs">
+        <button class="tab active" data-auth="login">Login</button>
+        <button class="tab" data-auth="register">Create account</button>
+      </div>
+
+      <div id="loginView">
+        <p class="eyebrow">WELCOME BACK</p>
+        <h2>Sign in</h2>
+        <form id="loginForm" class="form-stack">
+          <label>Email<input id="loginEmail" type="email" required placeholder="you@example.com"></label>
+          <label>Password<input id="loginPassword" type="password" required placeholder="Your password"></label>
+          <button class="btn primary full">Login <span>→</span></button>
+        </form>
+        <p class="muted small">New to NEXSTUDY? <button class="text-btn" data-switch="register">Create account</button></p>
+      </div>
+
+      <div id="registerView" class="hidden">
+        <p class="eyebrow">GET STARTED</p>
+        <h2>Create account</h2>
+        <div class="role-picker">
+          <button type="button" class="role-choice active" data-role="student">Student</button>
+          <button type="button" class="role-choice" data-role="faculty">Faculty</button>
+        </div>
+        <form id="registerForm" class="form-stack">
+          <label>Full name<input id="regName" required placeholder="Your name"></label>
+          <label>Email<input id="regEmail" type="email" required placeholder="you@example.com"></label>
+          <label>Password<input id="regPassword" type="password" minlength="6" required placeholder="At least 6 characters"></label>
+          <label>Confirm password<input id="regConfirm" type="password" required></label>
+          <label>Phone<input id="regPhone" placeholder="Contact number"></label>
+          <label>College<input id="regCollege" required placeholder="College name"></label>
+          <div id="studentFields">
+            <label>Enrollment number<input id="regEnrollment" placeholder="Enrollment number"></label>
+            <label>Branch / Course<input id="regCourse" placeholder="Computer Engineering"></label>
+            <label>Semester<input id="regSemester" placeholder="Semester"></label>
+          </div>
+          <div id="facultyFields" class="hidden">
+            <label>Department<input id="regDepartment" placeholder="Department"></label>
+            <label>Faculty ID<input id="regFacultyId" placeholder="Faculty ID"></label>
+          </div>
+          <button class="btn primary full">Create account <span>→</span></button>
+        </form>
+        <p class="muted small">Already registered? <button class="text-btn" data-switch="login">Login</button></p>
+      </div>
+      <p class="tiny-note">Preview version · Account data is stored in this browser.</p>
+    </section>
+  </main>
+
+  <!-- APPLICATION -->
+  <div id="appShell" class="app-shell hidden">
+    <aside class="sidebar" id="sidebar">
+      <!-- Text-only logo: no square icon and no decorative dot -->
+      <div class="brand">NEXSTUDY</div>
+
+      <div class="side-user">
+        <div class="avatar" id="sideAvatar">U</div>
+        <div><strong id="sideName">User</strong><small id="sideRole">Student</small></div>
+      </div>
+
+      <p class="side-label">WORKSPACE</p>
+      <nav id="navMenu">
+        <button class="nav-link active" data-page="dashboard">⌂ <span>Dashboard</span></button>
+        <button class="nav-link" data-page="dailyhub">✦ <span>Daily Hub</span></button>
+        <button class="nav-link" data-page="assignments">▤ <span>Assignments</span></button>
+        <button class="nav-link" data-page="classes">▦ <span>My Classes</span></button>
+        <button class="nav-link" data-page="community">◎ <span>Class Community</span></button>
+        <button class="nav-link" data-page="seniors">↗ <span>Senior Connect</span></button>
+        <button class="nav-link" data-page="profile">◉ <span>My Profile</span></button>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <div class="side-note"><strong>Keep growing.</strong><small>One step at a time.</small></div>
+        <button id="logoutBtn" class="nav-link logout">↪ <span>Sign out</span></button>
+      </div>
+    </aside>
+
+    <main class="main-area">
+      <header class="topbar">
+        <button id="menuToggle" class="icon-btn mobile-only">☰</button>
+        <div><p class="eyebrow">YOUR WORKSPACE</p><h2 id="pageTitle">Dashboard</h2></div>
+        <div class="top-actions"><span id="roleBadge" class="role-badge">STUDENT</span><button class="icon-btn" data-go="profile">◉</button></div>
+      </header>
+
+      <div class="content">
+        <!-- DASHBOARD -->
+        <section class="page active" id="page-dashboard">
+          <div class="welcome glass">
+            <div>
+              <p class="eyebrow">YOUR WORLD. YOUR GROWTH.</p>
+              <h1>Welcome, <span id="welcomeName">there</span>.</h1>
+              <p class="muted">Your academics, activities and progress in one place.</p>
+              <button class="btn primary" data-go="dailyhub">Open Daily Hub →</button>
+            </div>
+          <div class="welcome-coded-logo">
+  <span>NEXSTUDY</span>
+</div>
+          </div>
+          <div class="stats-grid" id="dashboardStats"></div>
+          <div class="dashboard-grid">
+            <article class="panel glass span-2">
+              <div class="panel-head"><div><p class="eyebrow">STAY ON TRACK</p><h3>Upcoming assignments</h3></div><button class="text-btn" data-go="assignments">View all →</button></div>
+              <div id="dashboardAssignments" class="item-list"></div>
+            </article>
+            <article class="panel glass">
+              <div class="panel-head"><div><p class="eyebrow">YOUR LEARNING</p><h3>My classes</h3></div><button class="text-btn" data-go="classes">View →</button></div>
+              <div id="dashboardClasses" class="item-list"></div>
+            </article>
+            <article class="panel glass">
+              <div class="panel-head"><div><p class="eyebrow">QUICK ACCESS</p><h3>Quick actions</h3></div></div>
+              <div class="quick-actions">
+                <button data-go="assignments">＋ Add assignment</button>
+                <button data-go="dailyhub">✦ Daily challenge</button>
+                <button data-go="community">◎ Community</button>
+                <button data-go="profile">◉ Edit profile</button>
+              </div>
+            </article>
+            <article class="panel glass">
+              <div class="panel-head"><div><p class="eyebrow">YOUR ACTIVITY</p><h3>Assignment progress</h3></div></div>
+              <div id="progressOverview"></div>
+            </article>
+          </div>
+        </section>
+
+        <!-- DAILY HUB -->
+        <section class="page" id="page-dailyhub">
+          <div class="section-intro"><p class="eyebrow">YOUR DAILY LEARNING SPACE</p><h2>Daily Hub</h2><p class="muted">Practice every day. Improve every week.</p></div>
+          <div class="daily-hero glass">
+            <div><p class="eyebrow">TODAY'S LEARNING</p><h2>Make today<br><span>count.</span></h2><p class="muted">Take a quick challenge and build your learning streak.</p></div>
+            <div class="hero-symbol">✦</div>
+          </div>
+          <div class="stats-grid daily-stats">
+            <article class="stat-card glass"><small>Current streak</small><strong id="streakCount">0 days</strong></article>
+            <article class="stat-card glass"><small>Challenges completed</small><strong id="challengeCount">0</strong></article>
+            <article class="stat-card glass"><small>Total points</small><strong id="totalPoints">0</strong></article>
+          </div>
+          <div class="dashboard-grid">
+            <article class="panel glass">
+              <div class="panel-head"><div><p class="eyebrow">DAILY PRACTICE</p><h3>Daily Challenge</h3></div><span class="pill">5 questions</span></div>
+              <p class="muted">Test your knowledge with a short practice quiz.</p>
+              <button id="startDailyChallenge" class="btn primary full">Start challenge →</button>
+              <p class="tiny-note">The current version uses sample questions. AI-generated questions will require backend integration.</p>
+              <p id="dailyChallengeStatus" class="muted small"></p>
+            </article>
+            <article class="panel glass">
+              <div class="panel-head"><div><p class="eyebrow">FACULTY ACTIVITY</p><h3>Faculty Quizzes</h3></div></div>
+              <div id="facultyQuizList" class="item-list"></div>
+            </article>
+          </div>
+
+          <article id="facultyQuizTools" class="panel glass faculty-only hidden">
+            <div class="panel-head"><div><p class="eyebrow">FACULTY WORKSPACE</p><h3>Create a quiz</h3></div></div>
+            <form id="facultyQuizForm" class="form-grid">
+              <label>Quiz title<input id="quizTitle" required></label>
+              <label>Class<select id="quizClass" required></select></label>
+              <label class="wide">Question<input id="quizQuestion" required></label>
+              <label>Option A<input id="quizA" required></label><label>Option B<input id="quizB" required></label>
+              <label>Option C<input id="quizC" required></label><label>Option D<input id="quizD" required></label>
+              <label>Correct option<select id="quizCorrect"><option value="0">A</option><option value="1">B</option><option value="2">C</option><option value="3">D</option></select></label>
+              <label>Deadline<input id="quizDeadline" type="datetime-local" required></label>
+              <label class="wide">Explanation<textarea id="quizExplanation" rows="2"></textarea></label>
+              <button class="btn primary">Publish quiz</button>
+            </form>
+          </article>
+
+          <article class="panel glass">
+            <div class="panel-head"><div><p class="eyebrow">CAMPUS PERFORMANCE</p><h3>Branch Leaderboard</h3></div><span class="pill">Browser preview</span></div>
+            <label class="filter-label">Period
+              <select id="leaderboardPeriod"><option value="weekly">This week</option><option value="monthly">This month</option><option value="all">All time</option></select>
+            </label>
+            <p id="leaderboardScope" class="tiny-note"></p>
+            <div id="leaderboardList" class="item-list"></div>
+            <p class="tiny-note">Scores are currently local to this browser. Shared branch rankings need a central database and login authentication.</p>
+          </article>
+        </section>
+
+        <!-- ASSIGNMENTS -->
+        <section class="page" id="page-assignments">
+          <div class="section-intro"><p class="eyebrow">ACADEMIC ORGANIZER</p><h2>Assignments</h2><p class="muted">Manage tasks, submissions and deadlines.</p></div>
+          <div class="filter-row"><input id="assignmentSearch" placeholder="Search assignments..."><select id="assignmentFilter"><option value="all">All</option><option value="pending">Pending</option><option value="submitted">Submitted</option><option value="expired">Expired</option></select></div>
+          <div id="assignmentList" class="cards-grid"></div>
+
+          <article id="facultyAssignmentTools" class="panel glass faculty-only hidden">
+            <div class="panel-head"><div><p class="eyebrow">FACULTY WORKSPACE</p><h3>Create assignment</h3></div></div>
+            <form id="assignmentForm" class="form-grid">
+              <label>Title<input id="assignmentTitle" required></label>
+              <label>Class<select id="assignmentClass" required></select></label>
+              <label>Subject<input id="assignmentSubject" required></label>
+              <label>Deadline<input id="assignmentDeadline" type="datetime-local" required></label>
+              <label class="wide">Instructions<textarea id="assignmentDescription" rows="3"></textarea></label>
+              <button class="btn primary">Publish assignment</button>
+            </form>
+          </article>
+        </section>
+
+        <!-- CLASSES -->
+        <section class="page" id="page-classes">
+          <div class="section-intro"><p class="eyebrow">LEARNING SPACES</p><h2>My Classes</h2><p class="muted">Your classes and academic groups.</p></div>
+          <div id="classList" class="cards-grid"></div>
+          <article id="facultyClassTools" class="panel glass faculty-only hidden">
+            <div class="panel-head"><div><p class="eyebrow">FACULTY WORKSPACE</p><h3>Create class</h3></div></div>
+            <form id="classForm" class="form-grid">
+              <label>Class name<input id="className" required></label>
+              <label>Branch / Course<input id="classCourse" required></label>
+              <label>Semester<input id="classSemester"></label>
+              <label>Section<input id="classSection"></label>
+              <label class="wide">Description<input id="classDescription"></label>
+              <button class="btn primary">Create class</button>
+            </form>
+            <div class="divider"></div>
+            <div class="panel-head"><div><p class="eyebrow">STUDENT ROSTER</p><h3>Import roster PDF</h3></div></div>
+            <form id="rosterForm" class="form-grid">
+              <label>Class<select id="rosterClass" required></select></label>
+              <label>PDF file<input id="rosterPdf" type="file" accept=".pdf" required></label>
+              <p class="tiny-note wide">Maximum file size: 150 KB. Text-based PDFs only in this browser preview.</p>
+              <button class="btn secondary">Read PDF</button>
+            </form>
+            <div id="rosterPreview"></div>
+          </article>
+        </section>
+
+        <!-- COMMUNITY -->
+        <section class="page" id="page-community">
+          <div class="section-intro"><p class="eyebrow">LEARN TOGETHER</p><h2>Class Community</h2><p class="muted">Share academic updates, questions and useful resources.</p></div>
+          <article class="panel glass">
+            <form id="postForm" class="form-stack">
+              <label>Class<select id="postClass"></select></label>
+              <label>Your post<textarea id="postText" rows="3" required placeholder="Share an update or ask a question..."></textarea></label>
+              <button class="btn primary">Publish post</button>
+            </form>
+          </article>
+          <div id="communityFeed" class="feed-list"></div>
+        </section>
+
+        <!-- SENIOR CONNECT -->
+        <section class="page" id="page-seniors">
+          <div class="section-intro"><p class="eyebrow">GROW WITH GUIDANCE</p><h2>Senior Connect</h2><p class="muted">Share your experience and discover helpful guidance.</p></div>
+          <article class="panel glass">
+            <form id="seniorForm" class="form-grid">
+              <label>Guidance topic<input id="seniorTopic" required placeholder="Internships, exams, projects"></label>
+              <label>Course / Year<input id="seniorCourse" required></label>
+              <label class="wide">Introduction<textarea id="seniorBio" rows="2" required></textarea></label>
+              <button class="btn primary">Publish connect card</button>
+            </form>
+          </article>
+          <div id="seniorList" class="cards-grid"></div>
+        </section>
+
+        <!-- PROFILE -->
+        <section class="page" id="page-profile">
+          <div class="section-intro"><p class="eyebrow">YOUR IDENTITY</p><h2>My Profile</h2><p class="muted">Manage your personal account information.</p></div>
+          <div class="profile-grid">
+            <article class="panel glass">
+              <div class="panel-head"><div><p class="eyebrow">ACCOUNT SETTINGS</p><h3>Edit profile</h3></div></div>
+              <form id="profileForm" class="form-stack">
+                <label>Profile photo<input id="profilePhoto" type="file" accept="image/*"></label>
+                <label>Full name<input id="profileName" required></label>
+                <label>Email<input id="profileEmail" disabled></label>
+                <label>Phone<input id="profilePhone"></label>
+                <label>College<input id="profileCollege"></label>
+                <div id="profileStudentFields">
+                  <label>Enrollment number<input id="profileEnrollment"></label>
+                  <label>Branch / Course<input id="profileCourse"></label>
+                  <label>Semester<input id="profileSemester"></label>
+                </div>
+                <div id="profileFacultyFields" class="hidden">
+                  <label>Department<input id="profileDepartment"></label>
+                  <label>Faculty ID<input id="profileFacultyId"></label>
+                </div>
+                <button class="btn primary">Save changes</button>
+              </form>
+            </article>
+            <article class="id-card glass">
+              <div class="id-top"><strong>NEXSTUDY</strong><small>MEMBER ID</small></div>
+              <div id="idPhoto" class="id-photo">U</div>
+              <h2 id="idName">Your name</h2>
+              <p id="idRole" class="eyebrow">STUDENT</p>
+              <div class="divider"></div>
+              <div id="idDetails" class="id-details"></div>
+              <p class="id-footer">YOUR WORLD. YOUR GROWTH.</p>
+            </article>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- QUIZ / ASSIGNMENT MODALS -->
+  <div id="modalBackdrop" class="modal-backdrop hidden">
+    <div class="modal glass">
+      <div class="panel-head"><h3 id="modalTitle">Details</h3><button class="icon-btn" id="modalClose">✕</button></div>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
+  <div id="quizBackdrop" class="modal-backdrop hidden">
+    <div class="modal glass">
+      <div class="panel-head"><div><p class="eyebrow">QUIZ SESSION</p><h3 id="quizModalTitle">Challenge</h3></div><button class="icon-btn" id="quizClose">✕</button></div>
+      <div id="quizModalBody"></div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

@@ -459,3 +459,473 @@ input[type="file"] { font-size: .78rem; }
   -webkit-text-fill-color: transparent;
   filter: drop-shadow(0px 0px 8px rgba(34, 211, 238, 0.4));
 }
+
+/* =========================================================
+   NEXSTUDY — FOREST GREEN & SAND BEIGE THEME
+   Replaces the previous neon / cyan / violet visual system.
+========================================================= */
+:root {
+  --bg: #1f3d2b;
+  --bg2: #294936;
+  --panel: rgba(232, 220, 196, .09);
+  --panel2: rgba(232, 220, 196, .15);
+  --border: rgba(232, 220, 196, .19);
+  --text: #f2ead9;
+  --muted: #c1c8b7;
+  --violet: #e8dcc4;
+  --violet2: #b8c7a7;
+  --green: #b8c7a7;
+  --red: #d98e7e;
+  --radius: 20px;
+  --shadow: 0 22px 60px rgba(8, 24, 15, .28);
+}
+
+html { scroll-behavior: smooth; }
+body {
+  color: var(--text);
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(232,220,196,.10), transparent 42%),
+    radial-gradient(ellipse at 90% 65%, rgba(184,199,167,.10), transparent 35%),
+    linear-gradient(180deg, #1f3d2b 0%, #254632 58%, #e8dcc4 145%);
+  background-attachment: fixed;
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  opacity: .22;
+  background-image: radial-gradient(rgba(232,220,196,.55) .7px, transparent .7px);
+  background-size: 17px 17px;
+  mask-image: linear-gradient(to bottom, black, transparent 82%);
+}
+h1,h2,h3 { color: #f1e8d5; }
+a { color: #e8dcc4; }
+.eyebrow { color: #c5d0b4; }
+.muted { color: #c5cbbd; }
+.tiny-note { color: #aeb9a8; }
+
+.glass {
+  background: rgba(232,220,196,.085);
+  border: 1px solid rgba(232,220,196,.18);
+  box-shadow: 0 12px 40px rgba(8,24,15,.16), inset 0 1px 0 rgba(255,255,255,.08);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+}
+
+/* Landing first, account panel arrives as the page is scrolled */
+.auth-screen {
+  width: 100%;
+  max-width: none;
+  min-height: 190vh;
+  margin: 0;
+  padding: 0 22px 90px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 36px;
+}
+.auth-intro {
+  position: relative;
+  top: auto;
+  width: min(1120px, 100%);
+  max-width: 1120px;
+  min-height: 92vh;
+  padding: 9vh 7vw 12vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+}
+.wordmark {
+  color: #f1e8d5;
+  font-size: 1.25rem;
+  letter-spacing: .16em;
+  margin-bottom: clamp(50px, 10vh, 105px);
+}
+.auth-intro .eyebrow { color: #c7d3b9; }
+.auth-intro h1 {
+  max-width: 850px;
+  margin: 0 0 22px;
+  font-size: clamp(3.2rem, 7vw, 6.5rem);
+  line-height: .98;
+  letter-spacing: -.065em;
+  color: #f2ead9;
+}
+.auth-intro h1 span {
+  color: #e8dcc4;
+  font-style: italic;
+}
+.auth-intro > .muted {
+  max-width: 570px;
+  color: rgba(242,234,217,.76);
+  font-size: 1.08rem;
+}
+.hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+.scroll-cue {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-top: 70px;
+  color: rgba(232,220,196,.66);
+  font-size: .66rem;
+  letter-spacing: .18em;
+  font-weight: 700;
+}
+.scroll-cue span {
+  display: inline-block;
+  width: 34px;
+  height: 1px;
+  background: #e8dcc4;
+}
+.intro-points { display: none; }
+
+.auth-card {
+  position: sticky;
+  top: 22px;
+  z-index: 15;
+  width: min(520px, 100%);
+  margin: 0 auto;
+  padding: 34px;
+  border-radius: 26px;
+  color: #1f3d2b;
+  background: rgba(232,220,196,.86);
+  border: 1px solid rgba(255,255,255,.58);
+  box-shadow: 0 25px 75px rgba(8,24,15,.30), inset 0 1px 0 rgba(255,255,255,.65);
+  backdrop-filter: blur(28px) saturate(125%);
+  -webkit-backdrop-filter: blur(28px) saturate(125%);
+  transition: box-shadow .35s ease, background .35s ease;
+}
+.page-scrolled .auth-card {
+  background: rgba(232,220,196,.78);
+  box-shadow: 0 28px 90px rgba(8,24,15,.38), inset 0 1px 0 rgba(255,255,255,.72);
+}
+.auth-card h2, .auth-card h3 { color: #1f3d2b; }
+.auth-card .eyebrow { color: #56705a; }
+.auth-card .muted, .auth-card .tiny-note { color: #64705f; }
+.auth-tabs { background: rgba(31,61,43,.09); }
+.tab { color: #64705f; }
+.tab.active { color: #f5eddd; background: #1f3d2b; }
+.role-choice {
+  color: #526451;
+  border-color: rgba(31,61,43,.2);
+  background: rgba(255,255,255,.35);
+}
+.role-choice.active {
+  color: #f5eddd;
+  border-color: #1f3d2b;
+  background: #1f3d2b;
+}
+.auth-card label { color: #344d38; }
+.auth-card input, .auth-card select, .auth-card textarea {
+  color: #203b2a;
+  background: rgba(255,255,255,.48);
+  border-color: rgba(31,61,43,.18);
+}
+.auth-card input::placeholder { color: #879080; }
+.auth-card input:focus, .auth-card select:focus, .auth-card textarea:focus {
+  border-color: #56705a;
+  background: rgba(255,255,255,.72);
+}
+.auth-card .text-btn { color: #31583b; }
+.auth-card .tiny-note { border-top: 1px solid rgba(31,61,43,.12); padding-top: 15px; }
+
+.btn.primary {
+  color: #f4eddf;
+  background: #1f3d2b;
+  box-shadow: 0 8px 22px rgba(31,61,43,.22);
+}
+.btn.primary:hover { background: #2c5139; }
+.btn.secondary {
+  color: #e8dcc4;
+  background: rgba(232,220,196,.10);
+  border-color: rgba(232,220,196,.25);
+}
+.auth-card .btn.secondary {
+  color: #1f3d2b;
+  background: rgba(31,61,43,.06);
+  border-color: rgba(31,61,43,.2);
+}
+.icon-btn {
+  color: #f0e7d4;
+  border-color: rgba(232,220,196,.2);
+  background: rgba(232,220,196,.08);
+}
+.icon-btn:hover { background: rgba(232,220,196,.16); }
+
+/* Main application surfaces */
+.sidebar {
+  background: rgba(20,48,32,.91);
+  border-right-color: rgba(232,220,196,.13);
+  backdrop-filter: blur(28px);
+}
+.brand, .wordmark { color: #f1e8d5; }
+.avatar {
+  color: #1f3d2b;
+  background: linear-gradient(140deg,#e8dcc4,#b8c7a7);
+}
+.nav-link { color: #c5cdbd; }
+.nav-link:hover, .nav-link.active {
+  color: #f5eddd;
+  background: rgba(232,220,196,.12);
+  border-color: rgba(232,220,196,.14);
+}
+.side-label { color: #9eae9b; }
+.side-note {
+  background: rgba(232,220,196,.08);
+  border-color: rgba(232,220,196,.12);
+}
+.topbar {
+  background: rgba(31,61,43,.76);
+  border-bottom-color: rgba(232,220,196,.13);
+  backdrop-filter: blur(22px);
+}
+.role-badge, .pill, .badge {
+  color: #e8dcc4;
+  background: rgba(232,220,196,.12);
+  border: 1px solid rgba(232,220,196,.14);
+}
+.welcome, .daily-hero {
+  background:
+    radial-gradient(ellipse at 85% 10%, rgba(232,220,196,.16), transparent 38%),
+    rgba(232,220,196,.09);
+}
+.welcome h1 span, .daily-hero h2 span { color: #e8dcc4; }
+.panel, .data-card, .stat-card, .id-card {
+  background-color: rgba(232,220,196,.075);
+  border-color: rgba(232,220,196,.15);
+}
+.stat-card, .list-item, .quick-actions button {
+  color: #f0e8d8;
+  background: rgba(232,220,196,.075);
+  border-color: rgba(232,220,196,.14);
+}
+.list-item small, .data-card p, .id-details { color: #c2cabb; }
+.quick-actions button:hover {
+  color: #fff7e8;
+  border-color: rgba(232,220,196,.38);
+  background: rgba(232,220,196,.13);
+}
+.progress-track { background: rgba(232,220,196,.16); }
+.progress-track span { background: linear-gradient(90deg,#b8c7a7,#e8dcc4); }
+.badge.success { color: #d5e3c7; background: rgba(137,174,121,.2); }
+.badge.warning { color: #f0d7a8; background: rgba(205,164,93,.18); }
+.badge.danger { color: #f1b7a9; background: rgba(217,142,126,.18); }
+.id-card {
+  background: linear-gradient(145deg,rgba(232,220,196,.14),rgba(232,220,196,.04)),#254632;
+}
+.id-details strong { color: #f4eddf; }
+.id-footer { color: #e8dcc4; }
+.id-photo {
+  color: #1f3d2b;
+  background: linear-gradient(140deg,#e8dcc4,#b8c7a7);
+}
+input, select, textarea {
+  color: #f2ead9;
+  background: rgba(9,28,17,.30);
+  border-color: rgba(232,220,196,.18);
+}
+input:hover, select:hover, textarea:hover { border-color: rgba(232,220,196,.38); }
+input:focus, select:focus, textarea:focus {
+  border-color: #e8dcc4;
+  background: rgba(9,28,17,.46);
+}
+input::placeholder, textarea::placeholder { color: #aeb9a8; }
+select option { color: #f2ead9; background: #1f3d2b; }
+.empty-state {
+  color: #c5cbbd;
+  border-color: rgba(232,220,196,.2);
+  background: rgba(232,220,196,.035);
+}
+.feed-post p { color: #e2e5d9; }
+.modal-backdrop { background: rgba(8,24,15,.72); }
+.modal { background: rgba(31,61,43,.96); }
+.answer-option {
+  color: #f2ead9;
+  background: rgba(232,220,196,.08);
+  border-color: rgba(232,220,196,.16);
+}
+.answer-option.selected {
+  border-color: #e8dcc4;
+  background: rgba(232,220,196,.16);
+}
+.toast {
+  color: #1f3d2b;
+  background: #e8dcc4;
+  border-color: rgba(31,61,43,.12);
+}
+
+/* Remove leftover neon logo styling */
+.welcome-coded-logo {
+  background: rgba(232,220,196,.08);
+  border-color: rgba(232,220,196,.18);
+  box-shadow: 0 15px 35px rgba(8,24,15,.25), inset 0 2px 5px rgba(255,255,255,.08);
+}
+.welcome-coded-logo:hover {
+  box-shadow: 0 20px 45px rgba(8,24,15,.28), inset 0 2px 5px rgba(255,255,255,.16);
+}
+.welcome-coded-logo span {
+  background: linear-gradient(120deg,#e8dcc4,#b8c7a7);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: none;
+}
+
+@media (max-width: 760px) {
+  .auth-screen { min-height: 175vh; padding: 0 14px 55px; gap: 24px; }
+  .auth-intro {
+    min-height: 88vh;
+    padding: 80px 12px 55px;
+    justify-content: center;
+  }
+  .wordmark { margin-bottom: 55px; }
+  .auth-intro h1 { font-size: clamp(2.8rem, 12vw, 4.4rem); }
+  .auth-intro > .muted { font-size: .98rem; }
+  .scroll-cue { margin-top: 48px; }
+  .auth-card { top: 10px; padding: 24px 20px; }
+  .hero-actions { width: 100%; }
+  .hero-actions .btn { flex: 1 1 100%; }
+}
+
+
+/* =========================================
+   NEXSTUDY — SCROLLING GLASS LOGIN DESIGN
+   Add this at the VERY END of style.css
+========================================= */
+
+.auth-screen:not(.hidden) {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  overflow: visible;
+  position: relative;
+  isolation: isolate;
+}
+
+/* HERO TEXT — stays behind the login card */
+.auth-intro {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 1;
+
+  width: 100%;
+  max-width: 900px;
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 70px 25px;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+
+  background: transparent !important;
+}
+
+/* HERO HEADING */
+.auth-intro h1 {
+  max-width: 800px;
+  font-size: clamp(3rem, 7vw, 6rem);
+  line-height: 1.05;
+  color: #f5eddd;
+}
+
+.auth-intro h1 span {
+  color: #e8dcc4;
+}
+
+/* LOGIN CARD — slides over the hero text */
+.auth-screen .auth-card.glass {
+  position: sticky !important;
+  top: 8vh;
+  z-index: 10;
+
+  width: min(90%, 510px);
+  margin: 0 auto 12vh;
+  padding: 35px;
+
+  /* Transparent glass */
+  background: rgba(232, 220, 196, 0.13) !important;
+  border: 1px solid rgba(245, 237, 221, 0.35);
+  border-radius: 26px;
+
+  backdrop-filter: blur(13px) saturate(145%);
+  -webkit-backdrop-filter: blur(13px) saturate(145%);
+
+  box-shadow:
+    0 25px 70px rgba(0, 0, 0, 0.24),
+    inset 0 1px 1px rgba(255, 255, 255, 0.25);
+
+  transition: background 0.3s ease;
+}
+
+/* Soft glass reflection */
+.auth-screen .auth-card.glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+
+  background: linear-gradient(
+    135deg,
+    rgba(255,255,255,0.13),
+    transparent 50%,
+    rgba(232,220,196,0.08)
+  );
+}
+
+/* Keep login content above reflection */
+.auth-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Login tabs */
+.auth-card .auth-tabs {
+  background: rgba(20, 45, 30, 0.35);
+  border: 1px solid rgba(255,255,255,0.12);
+}
+
+.auth-card .tab.active {
+  background: rgba(232,220,196,0.22);
+  color: #fff8e9;
+}
+
+/* Inputs */
+.auth-card input {
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.25);
+  color: #fff8e9;
+}
+
+.auth-card input::placeholder {
+  color: rgba(255,255,255,0.65);
+}
+
+/* Primary button */
+.auth-card .btn.primary {
+  background: linear-gradient(120deg, #e8dcc4, #b8c7a7);
+  color: #1f3d2b;
+}
+
+/* Mobile */
+@media (max-width: 760px) {
+  .auth-intro {
+    min-height: 100svh;
+    padding: 60px 22px;
+  }
+
+  .auth-intro h1 {
+    font-size: clamp(2.8rem, 12vw, 4.2rem);
+  }
+
+  .auth-screen .auth-card.glass {
+    width: 94%;
+    top: 5vh;
+    padding: 25px 19px;
+    margin-bottom: 10vh;
+  }
+}

@@ -32,10 +32,10 @@ os.makedirs(os.path.dirname(DATABASE), exist_ok=True)
 
 app = Flask(__name__)
 
-app.config["SECRET_KEY"] = os.environ.get(
-    "SECRET_KEY",
-    "nexstudy-development-secret-change-before-deployment"
-)
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY")
+if not app.config["SECRET_KEY"]:
+    # Local development fallback only. Set SECRET_KEY in production hosting.
+    app.config["SECRET_KEY"] = "local-dev-only-change-this-secret-before-deployment"
 
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
 
@@ -376,22 +376,29 @@ def update_profile():
     data = request.get_json(silent=True) or {}
     user_id = session["user_id"]
 
-    allowed_fields = [
-        "name", "phone", "college", "enrollment",
-        "course", "semester", "department"
-    ]
+    # API field name -> SQLite column name.
+    allowed_fields = {
+        "name": "name",
+        "phone": "phone",
+        "college": "college",
+        "enrollment": "enrollment",
+        "course": "course",
+        "semester": "semester",
+        "department": "department",
+        "facultyId": "faculty_id"
+    }
 
     values = {
-        field: data[field]
-        for field in allowed_fields
-        if field in data
+        column: data[api_field]
+        for api_field, column in allowed_fields.items()
+        if api_field in data
     }
 
     if not values:
         return jsonify({"error": "No profile changes provided"}), 400
 
     query = ", ".join(
-        f"{field} = ?" for field in values
+        f"{column} = ?" for column in values
     )
 
     conn = get_db()
@@ -796,3 +803,4 @@ if __name__ == "__main__":
         port=port,
         debug=True
     )
+

@@ -9,36 +9,20 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <body>
-    <body>
-  <!-- BEAUTIFUL BACKGROUND ANIMATION -->
-  <div class="animation-area">
-    <ul class="box-area">
-      <li></li>
-      <li></li>
-      <li></li>
-      <li></li>
-      <li></li>
-      <li></li>
-    </ul>
-  </div>
-
-  <div id="toast" class="toast"></div>
-  
-  <!-- Animated Background Shapes -->
-  <div class="bg-orb orb-1"></div>
-  <div class="bg-orb orb-2"></div>
-
-  <div id="toast" class="toast"></div>
   <div id="toast" class="toast"></div>
 
   <!-- LOGIN / REGISTER -->
   <main id="authScreen" class="auth-screen">
     <section class="auth-intro">
       <div class="wordmark">NEXSTUDY</div>
-      <p class="eyebrow">YOUR WORLD. YOUR GROWTH.</p>
-      <h1>Your student life. <span>One workspace.</span></h1>
-      <p class="muted">Learn, organize, practice and grow with your college community.</p>
+      <p class="eyebrow">THE CAMPUS, CONNECTED.</p>
+      <h1>Your whole student life. <span>In one workspace </span></h1>
+      <p class="muted">A calmer, smarter workspace for your classes, assignments, learning and campus connections.</p>
+      <div class="hero-actions">
+        <button class="btn primary" type="button" data-auth-scroll="login">Get started <span>→</span></button>
+        <button class="btn secondary" type="button" data-auth-scroll="register">Create your account</button>
+      </div>
+      <div class="scroll-cue"><span></span> SCROLL TO YOUR WORKSPACE</div>
       <div class="intro-points">
         <p>✦ Organize your academics</p>
         <p>✦ Challenge yourself every day</p>
@@ -46,7 +30,7 @@
       </div>
     </section>
 
-    <section class="auth-card glass">
+    <section id="authCard" class="auth-card glass">
       <div class="auth-tabs">
         <button class="tab active" data-auth="login">Login</button>
         <button class="tab" data-auth="register">Create account</button>
@@ -73,7 +57,7 @@
         <form id="registerForm" class="form-stack">
           <label>Full name<input id="regName" required placeholder="Your name"></label>
           <label>Email<input id="regEmail" type="email" required placeholder="you@example.com"></label>
-          <label>Password<input id="regPassword" type="password" minlength="6" required placeholder="At least 6 characters"></label>
+          <label>Password<input id="regPassword" type="password" minlength="8" required placeholder="At least 8 characters"></label>
           <label>Confirm password<input id="regConfirm" type="password" required></label>
           <label>Phone<input id="regPhone" placeholder="Contact number"></label>
           <label>College<input id="regCollege" required placeholder="College name"></label>
@@ -90,7 +74,7 @@
         </form>
         <p class="muted small">Already registered? <button class="text-btn" data-switch="login">Login</button></p>
       </div>
-      <p class="tiny-note">Preview version · Account data is stored in this browser.</p>
+      <p class="tiny-note">Secure account access · Powered by NEXSTUDY</p>
     </section>
   </main>
 

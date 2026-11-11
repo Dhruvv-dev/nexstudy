@@ -1,119 +1,91 @@
-/* =========================================================
-   NEXSTUDY — COMPLETE FRONTEND JAVASCRIPT
-   Backend connected:
-   - Login: POST /api/login
-   - Profile: PUT /api/profile/<user_id>
-
-   Other modules currently use browser localStorage.
-========================================================= */
-
 
 /* =========================================================
-   1. DATABASE AND HELPER FUNCTIONS
+   NEXSTUDY — COMPLETE JAVASCRIPT
+   Forest Green + Sand Beige Edition
+   Frontend: HTML + CSS + JavaScript
+   Backend: Python Flask + SQLite
 ========================================================= */
 
-const DB = {
-  users: "nex_users_v2",
-  current: "nex_current_v2",
-  classes: "nex_classes_v2",
-  assignments: "nex_assignments_v2",
-  quizzes: "nex_quizzes_v2",
-  attempts: "nex_attempts_v2",
-  posts: "nex_posts_v2",
-  seniors: "nex_seniors_v2"
+"use strict";
+
+/* =========================================================
+   1. CONFIGURATION
+========================================================= */
+
+const API = {
+  register: "/api/register",
+  login: "/api/login",
+  logout: "/api/logout",
+  me: "/api/me",
+  profile: "/api/profile",
+  classes: "/api/classes",
+  assignments: "/api/assignments"
+};
+
+const STORAGE = {
+  user: "nexstudy_user",
+  photo: "nexstudy_photo",
+  posts: "nexstudy_posts",
+  seniors: "nexstudy_seniors",
+  quizzes: "nexstudy_quizzes",
+  attempts: "nexstudy_attempts",
+  challenges: "nexstudy_challenges"
 };
 
 const $ = id => document.getElementById(id);
 
-function read(key) {
+let currentUser = null;
+let currentQuiz = null;
+let currentQuestion = 0;
+let quizAnswers = [];
+let selectedRole = "student";
+let classesCache = [];
+let assignmentsCache = [];
+let toastTimer = null;
+
+
+/* =========================================================
+   2. COMMON HELPERS
+========================================================= */
+
+function getData(key, fallback = []) {
   try {
-    const data = JSON.parse(localStorage.getItem(key) || "[]");
-    return Array.isArray(data) ? data : [];
-  } catch (error) {
-    console.error("Storage read error:", key, error);
-    return [];
+    const value = JSON.parse(localStorage.getItem(key));
+    return value ?? fallback;
+  } catch {
+    return fallback;
   }
 }
 
-function write(key, value) {
+function saveData(key, value) {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
 function uid() {
-  return Date.now().toString(36) +
-    Math.random().toString(36).slice(2, 8);
+  return crypto.randomUUID
+    ? crypto.randomUUID()
+    : Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
-function esc(value) {
-  return String(value ?? "").replace(/[&<>"']/g, c => ({
+function escapeHTML(value) {
+  return String(value ?? "").replace(/[&<>"']/g, char => ({
     "&": "&amp;",
     "<": "&lt;",
     ">": "&gt;",
     '"': "&quot;",
     "'": "&#39;"
-  }[c]));
+  })[char]);
 }
 
-function dateText(value) {
-  if (!value) return "No date";
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "Invalid date";
-  }
-
-  return date.toLocaleString();
+function value(id) {
+  return $(id)?.value?.trim() ?? "";
 }
 
-function isExpired(value) {
-  if (!value) return false;
-
-  const date = new Date(value).getTime();
-
-  return !Number.isNaN(date) && date < Date.now();
+function setText(id, text) {
+  if ($(id)) $(id).textContent = text ?? "";
 }
 
-function currentUser() {
-  const currentId = localStorage.getItem(DB.current);
-
-  if (!currentId) return null;
-
-  return read(DB.users).find(
-    user => String(user.id) === String(currentId)
-  ) || null;
-}
-
-function updateUserInStorage(updatedUser) {
-  const users = read(DB.users);
-
-  const index = users.findIndex(
-    user => String(user.id) === String(updatedUser.id)
-  );
-
-  if (index === -1) {
-    users.push(updatedUser);
-  } else {
-    users[index] = {
-      ...users[index],
-      ...updatedUser
-    };
-  }
-
-  write(DB.users, users);
-}
-
-function safeValue(id) {
-  return $(id)?.value ?? "";
-}
-
-function setText(id, value) {
-  if ($(id)) {
-    $(id).textContent = value ?? "";
-  }
-}
-
-function toast(message) {
+function showToast(message) {
   const el = $("toast");
 
   if (!el) {
@@ -124,29 +96,90 @@ function toast(message) {
   el.textContent = message;
   el.classList.add("show");
 
-  clearTimeout(toast.timer);
+  clearTimeout(toastTimer);
 
-  toast.timer = setTimeout(() => {
+  toastTimer = setTimeout(() => {
     el.classList.remove("show");
   }, 2800);
 }
 
+function formatDate(date) {
+  if (!date) return "Not specified";
+
+  const parsed = new Date(date);
+
+  if (Number.isNaN(parsed.getTime())) return "Invalid date";
+
+  return parsed.toLocaleString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function expired(date) {
+  return !date || new Date(date).getTime() <= Date.now();
+}
+
+function initials(name) {
+  return String(name || "User")
+    .split(/\s+/)
+    .slice(0, 2)
+    .map(part => part[0])
+    .join("")
+    .toUpperCase();
+}
+
+async function api(url, options = {}) {
+  const response = await fetch(url, {
+    credentials: "same-origin",
+    ...options,
+    headers: {
+      ...(options.body instanceof FormData
+        ? {}
+        : { "Content-Type": "application/json" }),
+      ...options.headers
+    }
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.error || data.message || "Something went wrong.");
+  }
+
+  return data;
+}
+
+function jsonOptions(method, body) {
+  return {
+    method,
+    body: JSON.stringify(body)
+  };
+}
+
+function setLoading(button, loading, originalText = "") {
+  if (!button) return;
+
+  button.disabled = loading;
+
+  if (loading) {
+    button.dataset.originalText = button.textContent;
+    button.textContent = "Please wait...";
+  } else {
+    button.textContent =
+      button.dataset.originalText || originalText;
+  }
+}
+
 
 /* =========================================================
-   2. GLOBAL VARIABLES
+   3. AUTH SCREEN
 ========================================================= */
 
-let selectedRole = "student";
-let quizSession = null;
-let selectedAnswers = {};
-let rosterRows = [];
-
-
-/* =========================================================
-   3. LOGIN AND REGISTER SCREEN
-========================================================= */
-
-function showAuth(view) {
+function showAuth(view = "login") {
   $("loginView")?.classList.toggle("hidden", view !== "login");
   $("registerView")?.classList.toggle("hidden", view !== "register");
 
@@ -170,99 +203,125 @@ document.querySelectorAll("[data-switch]").forEach(button => {
   });
 });
 
+/* HERO BUTTONS — SCROLL TO GLASS LOGIN */
+document.querySelectorAll("[data-auth-scroll]").forEach(button => {
+  button.addEventListener("click", () => {
+    const view = button.dataset.authScroll;
+
+    showAuth(view);
+
+    document.getElementById("authCard")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
+  });
+});
+
+
 
 /* =========================================================
-   4. STUDENT / FACULTY ROLE SELECTION
+   4. STUDENT / FACULTY ROLE
 ========================================================= */
+
+function selectRole(role) {
+  selectedRole = role;
+
+  document.querySelectorAll("[data-role]").forEach(button => {
+    button.classList.toggle(
+      "active",
+      button.dataset.role === role
+    );
+  });
+
+  $("studentFields")?.classList.toggle(
+    "hidden",
+    role !== "student"
+  );
+
+  $("facultyFields")?.classList.toggle(
+    "hidden",
+    role !== "faculty"
+  );
+}
 
 document.querySelectorAll("[data-role]").forEach(button => {
   button.addEventListener("click", () => {
-    selectedRole = button.dataset.role;
-
-    document.querySelectorAll("[data-role]").forEach(item => {
-      item.classList.toggle("active", item === button);
-    });
-
-    $("studentFields")?.classList.toggle(
-      "hidden",
-      selectedRole !== "student"
-    );
-
-    $("facultyFields")?.classList.toggle(
-      "hidden",
-      selectedRole !== "faculty"
-    );
+    selectRole(button.dataset.role);
   });
 });
 
 
 /* =========================================================
-   5. REGISTER ACCOUNT
-
-   Registration is currently browser-local because the
-   current Python backend does not have a register API.
+   5. REGISTRATION — FLASK BACKEND
 ========================================================= */
 
-function registerAccount(event) {
+async function registerAccount(event) {
   event.preventDefault();
 
-  const users = read(DB.users);
+  const button = event.submitter;
 
-  const email = safeValue("regEmail")
-    .trim()
-    .toLowerCase();
+  const password = value("regPassword");
+  const confirm = value("regConfirm");
 
-  const password = safeValue("regPassword");
-
-  const confirmPassword = safeValue("regConfirm");
-
-  if (password.length < 6) {
-    return toast("Password must contain at least 6 characters.");
+  if (password.length < 8) {
+    showToast("Password must have at least 8 characters.");
+    return;
   }
 
-  if (password !== confirmPassword) {
-    return toast("Passwords do not match.");
+  if (password !== confirm) {
+    showToast("Passwords do not match.");
+    return;
   }
 
-  if (users.some(user => user.email === email)) {
-    return toast("This email is already registered in this browser.");
-  }
-
-  const user = {
-    id: uid(),
+  const data = {
     role: selectedRole,
-
-    name: safeValue("regName").trim(),
-    email,
+    name: value("regName"),
+    email: value("regEmail").toLowerCase(),
     password,
-
-    phone: safeValue("regPhone").trim(),
-    college: safeValue("regCollege").trim(),
-
-    enrollment: safeValue("regEnrollment").trim(),
-    course: safeValue("regCourse").trim(),
-    semester: safeValue("regSemester").trim(),
-
-    department: safeValue("regDepartment").trim(),
-    facultyId: safeValue("regFacultyId").trim(),
-
-    photo: "",
-    authSource: "local",
-
-    createdAt: new Date().toISOString()
+    phone: value("regPhone"),
+    college: value("regCollege"),
+    enrollment: value("regEnrollment"),
+    course: value("regCourse"),
+    semester: value("regSemester"),
+    department: value("regDepartment"),
+    facultyId: value("regFacultyId")
   };
 
-  users.push(user);
+  if (!data.name || !data.email || !data.college) {
+    showToast("Please complete all required fields.");
+    return;
+  }
 
-  write(DB.users, users);
+  setLoading(button, true);
 
-  localStorage.setItem(DB.current, String(user.id));
+  try {
+    await api(API.register, jsonOptions("POST", data));
 
-  $("registerForm").reset();
+    const login = await api(
+      API.login,
+      jsonOptions("POST", {
+        email: data.email,
+        password
+      })
+    );
 
-  openApp();
+    currentUser = login.user;
 
-  toast("Account created successfully.");
+    saveData(STORAGE.user, currentUser);
+
+    $("registerForm").reset();
+
+    selectRole("student");
+
+    await enterApplication();
+
+    showToast("Welcome to NEXSTUDY!");
+
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setLoading(button, false);
+  }
 }
 
 $("registerForm")?.addEventListener(
@@ -272,104 +331,44 @@ $("registerForm")?.addEventListener(
 
 
 /* =========================================================
-   6. LOGIN ACCOUNT — PYTHON BACKEND
+   6. LOGIN — FLASK BACKEND
 ========================================================= */
 
 async function loginAccount(event) {
   event.preventDefault();
 
-  const email = safeValue("loginEmail")
-    .trim()
-    .toLowerCase();
+  const button = event.submitter;
 
-  const password = safeValue("loginPassword");
+  const email = value("loginEmail").toLowerCase();
+  const password = value("loginPassword");
 
   if (!email || !password) {
-    return toast("Enter email and password.");
+    showToast("Enter your email and password.");
+    return;
   }
 
+  setLoading(button, true);
+
   try {
-    const response = await fetch("/api/login", {
-      method: "POST",
-
-      headers: {
-        "Content-Type": "application/json"
-      },
-
-      body: JSON.stringify({
-        email,
-        password
-      })
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      return toast(data.error || "Login failed.");
-    }
-
-    if (!data.user || data.user.id === undefined) {
-      return toast("Invalid user information received from server.");
-    }
-
-    const backendUser = {
-      ...data.user,
-
-      id: String(data.user.id),
-
-      photo: "",
-      authSource: "backend"
-    };
-
-    // Preserve the user's previously saved profile photo.
-    const existingUser = read(DB.users).find(
-      user => String(user.id) === backendUser.id
+    const result = await api(
+      API.login,
+      jsonOptions("POST", { email, password })
     );
 
-    if (existingUser?.photo) {
-      backendUser.photo = existingUser.photo;
-    }
+    currentUser = result.user;
 
-    updateUserInStorage(backendUser);
-
-    localStorage.setItem(
-      DB.current,
-      backendUser.id
-    );
+    saveData(STORAGE.user, currentUser);
 
     $("loginForm").reset();
 
-    openApp();
+    await enterApplication();
 
-    toast("Login successful!");
+    showToast("Login successful!");
 
   } catch (error) {
-    console.error("Login error:", error);
-
-    // Local account fallback for accounts created
-    // through the current browser-only registration.
-    const localUser = read(DB.users).find(user =>
-      user.email === email &&
-      user.password === password &&
-      user.authSource !== "backend"
-    );
-
-    if (localUser) {
-      localStorage.setItem(
-        DB.current,
-        String(localUser.id)
-      );
-
-      $("loginForm").reset();
-
-      openApp();
-
-      toast("Logged in using local preview account.");
-
-      return;
-    }
-
-    toast("Server error. Check if Python is running.");
+    showToast(error.message);
+  } finally {
+    setLoading(button, false);
   }
 }
 
@@ -380,47 +379,71 @@ $("loginForm")?.addEventListener(
 
 
 /* =========================================================
-   7. OPEN APPLICATION
+   7. RESTORE LOGIN SESSION
 ========================================================= */
 
-function openApp() {
-  const user = currentUser();
+async function restoreSession() {
+  try {
+    const result = await api(API.me);
 
-  if (!user) {
-    showLoginScreen();
-    return;
+    currentUser = result.user;
+
+    saveData(STORAGE.user, currentUser);
+
+    await enterApplication();
+
+  } catch {
+    currentUser = null;
+
+    $("authScreen")?.classList.remove("hidden");
+    $("appShell")?.classList.add("hidden");
+
+    showAuth("login");
   }
+}
+
+
+/* =========================================================
+   8. ENTER APPLICATION
+========================================================= */
+
+async function enterApplication() {
+  if (!currentUser) return;
 
   $("authScreen")?.classList.add("hidden");
   $("appShell")?.classList.remove("hidden");
 
+  updateUserInterface();
+
+  await loadClasses();
+  await loadAssignments();
+
+  renderAll();
+
+  showPage("dashboard");
+}
+
+function updateUserInterface() {
+  if (!currentUser) return;
+
+  const user = currentUser;
+
   setText("sideName", user.name);
   setText("sideRole", user.role);
+  setText("welcomeName", user.name.split(" ")[0]);
+  setText("roleBadge", user.role.toUpperCase());
+
+  const photo = localStorage.getItem(
+    STORAGE.photo + "_" + user.id
+  );
 
   const avatar = $("sideAvatar");
 
   if (avatar) {
-    avatar.innerHTML = user.photo
-      ? `<img src="${user.photo}" alt="Profile">`
-      : esc((user.name || "U").charAt(0).toUpperCase());
+    avatar.innerHTML = photo
+      ? `<img src="${photo}" alt="Profile">`
+      : escapeHTML(initials(user.name));
   }
-
-  setText(
-    "welcomeName",
-    (user.name || "User").split(" ")[0]
-  );
-
-  setText(
-    "roleBadge",
-    (user.role || "student").toUpperCase()
-  );
-
-  setText(
-    "welcomeMessage",
-    user.role === "faculty"
-      ? "Manage your classes, assignments and student learning."
-      : "Your academics, activities and progress in one place."
-  );
 
   document.querySelectorAll(".faculty-only").forEach(element => {
     element.classList.toggle(
@@ -438,48 +461,58 @@ function openApp() {
     "hidden",
     user.role !== "faculty"
   );
-
-  renderAll();
-
-  showPage("dashboard");
 }
 
 
-function showLoginScreen() {
+/* =========================================================
+   9. LOGOUT
+========================================================= */
+
+async function logout() {
+  try {
+    await api(API.logout, { method: "POST" });
+  } catch (error) {
+    console.error(error);
+  }
+
+  currentUser = null;
+
   $("appShell")?.classList.add("hidden");
   $("authScreen")?.classList.remove("hidden");
 
   showAuth("login");
+
+  showToast("You have signed out.");
 }
 
-
-/* =========================================================
-   8. LOGOUT
-========================================================= */
-
-$("logoutBtn")?.addEventListener("click", () => {
-  localStorage.removeItem(DB.current);
-
-  showLoginScreen();
-
-  toast("You have signed out.");
-});
+$("logoutBtn")?.addEventListener("click", logout);
 
 
 /* =========================================================
-   9. PAGE NAVIGATION
+   10. PAGE NAVIGATION
 ========================================================= */
+
+const PAGE_TITLES = {
+  dashboard: "Dashboard",
+  dailyhub: "Daily Hub",
+  assignments: "Assignments",
+  classes: "My Classes",
+  community: "Class Community",
+  seniors: "Senior Connect",
+  profile: "My Profile"
+};
 
 function showPage(page) {
-  document.querySelectorAll(".page").forEach(element => {
-    element.classList.remove("active");
-  });
-
   const target = $("page-" + page);
 
   if (!target) return;
 
-  target.classList.add("active");
+  document.querySelectorAll(".page").forEach(section => {
+    section.classList.toggle(
+      "active",
+      section === target
+    );
+  });
 
   document.querySelectorAll(".nav-link[data-page]").forEach(button => {
     button.classList.toggle(
@@ -488,21 +521,11 @@ function showPage(page) {
     );
   });
 
-  const titles = {
-    dashboard: "Dashboard",
-    dailyhub: "Daily Hub",
-    assignments: "Assignments",
-    classes: "My Classes",
-    community: "Class Community",
-    seniors: "Senior Connect",
-    profile: "My Profile"
-  };
-
-  setText("pageTitle", titles[page] || "NEXSTUDY");
+  setText("pageTitle", PAGE_TITLES[page] || "NEXSTUDY");
 
   $("sidebar")?.classList.remove("open");
 
-  renderAll();
+  renderPage(page);
 }
 
 document.querySelectorAll("[data-page]").forEach(button => {
@@ -517,403 +540,356 @@ document.querySelectorAll("[data-go]").forEach(button => {
   });
 });
 
-$("topProfile")?.addEventListener("click", () => {
-  showPage("profile");
-});
-
 $("menuToggle")?.addEventListener("click", () => {
   $("sidebar")?.classList.toggle("open");
 });
 
 
 /* =========================================================
-   10. CLASS HELPERS
+   11. PAGE RENDERING
 ========================================================= */
 
-function myClasses() {
-  const user = currentUser();
+function renderPage(page) {
+  const functions = {
+    dashboard: renderDashboard,
+    dailyhub: renderDailyHub,
+    assignments: renderAssignments,
+    classes: renderClasses,
+    community: renderCommunity,
+    seniors: renderSeniors,
+    profile: renderProfile
+  };
 
-  if (!user) return [];
+  functions[page]?.();
+}
 
-  const classes = read(DB.classes);
+function renderAll() {
+  if (!currentUser) return;
 
-  return user.role === "faculty"
-    ? classes.filter(classItem =>
-        String(classItem.facultyId) === String(user.id)
-      )
-    : classes.filter(classItem =>
-        (classItem.memberIds || []).some(
-          id => String(id) === String(user.id)
-        )
-      );
+  Object.values({
+    dashboard: renderDashboard,
+    dailyhub: renderDailyHub,
+    assignments: renderAssignments,
+    classes: renderClasses,
+    community: renderCommunity,
+    seniors: renderSeniors,
+    profile: renderProfile
+  }).forEach(fn => fn());
 }
 
 
-function populateClassSelects() {
-  const classes = myClasses();
+/* =========================================================
+   12. CLASSES — BACKEND
+========================================================= */
 
-  const selectIds = [
+async function loadClasses() {
+  try {
+    const result = await api(API.classes);
+
+    classesCache = result.classes || [];
+
+    populateClassSelects();
+
+  } catch (error) {
+    classesCache = [];
+    console.error("Classes:", error);
+  }
+}
+
+function populateClassSelects() {
+  [
     "assignmentClass",
     "quizClass",
     "rosterClass",
     "postClass"
-  ];
+  ].forEach(id => {
+    const select = $(id);
 
-  selectIds.forEach(id => {
-    const element = $(id);
+    if (!select) return;
 
-    if (!element) return;
+    const previous = select.value;
 
-    const previousValue = element.value;
-
-    element.innerHTML = classes.map(classItem => `
-      <option value="${esc(classItem.id)}">
-        ${esc(classItem.name)}
+    select.innerHTML = classesCache.map(item => `
+      <option value="${escapeHTML(item.id)}">
+        ${escapeHTML(item.name)}
       </option>
     `).join("") || `
       <option value="">No classes available</option>
     `;
 
-    if (classes.some(classItem =>
-      String(classItem.id) === String(previousValue)
-    )) {
-      element.value = previousValue;
+    if (classesCache.some(item => item.id === previous)) {
+      select.value = previous;
     }
   });
 }
 
 
 /* =========================================================
-   11. RENDER ALL FEATURES
+   13. CREATE CLASS — FACULTY
 ========================================================= */
 
-function renderAll() {
-  if (!currentUser()) return;
-
-  populateClassSelects();
-
-  renderDashboard();
-  renderAssignments();
-  renderClasses();
-  renderCommunity();
-  renderSeniors();
-  renderProfile();
-  renderDailyHub();
-}
-
-
-/* =========================================================
-   12. DASHBOARD
-========================================================= */
-
-function renderDashboard() {
-  const user = currentUser();
-
-  if (!user) return;
-
-  const classes = myClasses();
-
-  const assignments = read(DB.assignments).filter(item => {
-    return user.role === "faculty"
-      ? String(item.facultyId) === String(user.id)
-      : classes.some(classItem =>
-          String(classItem.id) === String(item.classId)
-        );
-  });
-
-  const done = assignments.filter(item =>
-    (item.submissions || []).some(submission =>
-      String(submission.userId) === String(user.id)
-    )
-  ).length;
-
-  const pending = assignments.filter(item =>
-    !isExpired(item.deadline) &&
-    !(item.submissions || []).some(submission =>
-      String(submission.userId) === String(user.id)
-    )
-  ).length;
-
-  const stats = user.role === "faculty"
-    ? [
-        ["My classes", classes.length],
-        ["Assignments", assignments.length],
-        [
-          "Total submissions",
-          assignments.reduce(
-            (total, item) => total + (item.submissions || []).length,
-            0
-          )
-        ]
-      ]
-    : [
-        ["My classes", classes.length],
-        ["Pending tasks", pending],
-        ["Submitted", done]
-      ];
-
-  $("dashboardStats").innerHTML = stats.map(([label, value]) => `
-    <article class="stat-card glass">
-      <small>${esc(label)}</small>
-      <strong>${value}</strong>
-    </article>
-  `).join("");
-
-
-  const upcoming = assignments
-    .filter(item => !isExpired(item.deadline))
-    .sort((a, b) =>
-      new Date(a.deadline) - new Date(b.deadline)
-    )
-    .slice(0, 4);
-
-  $("dashboardAssignments").innerHTML = upcoming.length
-    ? upcoming.map(item => {
-        const submitted = (item.submissions || []).some(
-          submission =>
-            String(submission.userId) === String(user.id)
-        );
-
-        return `
-          <div class="list-item">
-            <div>
-              <strong>${esc(item.title)}</strong>
-              <small>
-                ${esc(item.subject)} · Due ${dateText(item.deadline)}
-              </small>
-            </div>
-
-            <span class="badge ${submitted ? "success" : "warning"}">
-              ${submitted ? "Submitted" : "Open"}
-            </span>
-          </div>
-        `;
-      }).join("")
-    : `<div class="empty-state">No upcoming assignments.</div>`;
-
-
-  $("dashboardClasses").innerHTML = classes
-    .slice(0, 4)
-    .map(classItem => `
-      <div class="list-item">
-        <div>
-          <strong>${esc(classItem.name)}</strong>
-          <small>
-            ${esc(classItem.course)} · Semester
-            ${esc(classItem.semester || "-")}
-          </small>
-        </div>
-      </div>
-    `).join("") || `
-      <div class="empty-state">No classes added yet.</div>
-    `;
-
-
-  const percent = assignments.length
-    ? Math.round((done / assignments.length) * 100)
-    : 0;
-
-  $("progressOverview").innerHTML = `
-    <strong>${percent}% completed</strong>
-
-    <div class="progress-track">
-      <span style="width:${percent}%"></span>
-    </div>
-
-    <small class="muted">
-      ${done} of ${assignments.length} assignments submitted.
-    </small>
-  `;
-}
-
-
-/* =========================================================
-   13. FACULTY — CREATE ASSIGNMENT
-========================================================= */
-
-$("assignmentForm")?.addEventListener("submit", event => {
+$("classForm")?.addEventListener("submit", async event => {
   event.preventDefault();
 
-  const user = currentUser();
-
-  if (!user || user.role !== "faculty") {
-    return toast("Faculty access only.");
+  if (currentUser?.role !== "faculty") {
+    return showToast("Only faculty can create classes.");
   }
 
-  const classId = safeValue("assignmentClass");
+  const button = event.submitter;
 
-  if (!classId) {
-    return toast("Create a class first.");
+  const data = {
+    name: value("className"),
+    course: value("classCourse"),
+    semester: value("classSemester"),
+    section: value("classSection"),
+    description: value("classDescription")
+  };
+
+  if (!data.name || !data.course) {
+    return showToast("Enter class name and course.");
   }
 
-  const deadlineValue = safeValue("assignmentDeadline");
+  setLoading(button, true);
 
-  if (!deadlineValue) {
-    return toast("Select an assignment deadline.");
+  try {
+    await api(
+      API.classes,
+      jsonOptions("POST", data)
+    );
+
+    event.target.reset();
+
+    await loadClasses();
+
+    renderAll();
+
+    showToast("Class created successfully!");
+
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setLoading(button, false);
   }
-
-  const deadline = new Date(deadlineValue);
-
-  if (Number.isNaN(deadline.getTime())) {
-    return toast("Invalid deadline.");
-  }
-
-  const items = read(DB.assignments);
-
-  items.push({
-    id: uid(),
-
-    facultyId: user.id,
-    classId,
-
-    title: safeValue("assignmentTitle").trim(),
-    subject: safeValue("assignmentSubject").trim(),
-    description: safeValue("assignmentDescription").trim(),
-
-    deadline: deadline.toISOString(),
-
-    submissions: [],
-
-    createdAt: new Date().toISOString()
-  });
-
-  write(DB.assignments, items);
-
-  event.target.reset();
-
-  renderAll();
-
-  toast("Assignment published.");
 });
 
 
 /* =========================================================
-   14. RENDER ASSIGNMENTS
+   14. RENDER CLASSES
+========================================================= */
+
+function renderClasses() {
+  const container = $("classList");
+
+  if (!container) return;
+
+  container.innerHTML = classesCache.length
+    ? classesCache.map(item => `
+        <article class="panel glass">
+          <p class="eyebrow">LEARNING SPACE</p>
+          <h3>${escapeHTML(item.name)}</h3>
+          <p>${escapeHTML(item.course || "")}</p>
+          <p class="muted">
+            Semester: ${escapeHTML(item.semester || "-")}
+            · Section: ${escapeHTML(item.section || "-")}
+          </p>
+          <p class="muted">
+            ${escapeHTML(item.description || "")}
+          </p>
+        </article>
+      `).join("")
+    : `
+      <div class="empty-state">
+        No classes available yet.
+      </div>
+    `;
+}
+
+
+/* =========================================================
+   15. ASSIGNMENTS — BACKEND
+========================================================= */
+
+async function loadAssignments() {
+  try {
+    const result = await api(API.assignments);
+
+    assignmentsCache = result.assignments || [];
+
+  } catch (error) {
+    assignmentsCache = [];
+    console.error("Assignments:", error);
+  }
+}
+
+
+/* =========================================================
+   16. CREATE ASSIGNMENT — FACULTY
+========================================================= */
+
+$("assignmentForm")?.addEventListener("submit", async event => {
+  event.preventDefault();
+
+  if (currentUser?.role !== "faculty") {
+    return showToast("Faculty access required.");
+  }
+
+  const button = event.submitter;
+
+  const data = {
+    title: value("assignmentTitle"),
+    classId: value("assignmentClass"),
+    subject: value("assignmentSubject"),
+    deadline: value("assignmentDeadline"),
+    description: value("assignmentDescription")
+  };
+
+  if (!data.title || !data.classId || !data.deadline) {
+    return showToast("Complete all required fields.");
+  }
+
+  if (expired(data.deadline)) {
+    return showToast("Deadline must be in the future.");
+  }
+
+  setLoading(button, true);
+
+  try {
+    await api(
+      API.assignments,
+      jsonOptions("POST", data)
+    );
+
+    event.target.reset();
+
+    await loadAssignments();
+
+    renderAll();
+
+    showToast("Assignment published!");
+
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setLoading(button, false);
+  }
+});
+
+
+/* =========================================================
+   17. RENDER ASSIGNMENTS
 ========================================================= */
 
 function renderAssignments() {
-  const user = currentUser();
+  const container = $("assignmentList");
 
-  if (!user) return;
+  if (!container) return;
 
-  const classes = myClasses();
+  const search = value("assignmentSearch").toLowerCase();
+  const filter = $("assignmentFilter")?.value || "all";
 
-  const search = safeValue("assignmentSearch").toLowerCase();
-
-  const filter = safeValue("assignmentFilter") || "all";
-
-  const items = read(DB.assignments)
-    .filter(item => {
-      return user.role === "faculty"
-        ? String(item.facultyId) === String(user.id)
-        : classes.some(classItem =>
-            String(classItem.id) === String(item.classId)
-          );
-    })
-    .filter(item =>
-      (item.title + " " + item.subject)
+  let items = assignmentsCache.filter(item => {
+    const matchesSearch =
+      `${item.title} ${item.subject} ${item.class_name}`
         .toLowerCase()
-        .includes(search)
-    )
-    .filter(item => {
-      const submitted = (item.submissions || []).some(
-        submission =>
-          String(submission.userId) === String(user.id)
-      );
+        .includes(search);
 
-      if (filter === "submitted") return submitted;
+    if (!matchesSearch) return false;
 
-      if (filter === "pending") {
-        return !submitted && !isExpired(item.deadline);
-      }
+    const isExpired = expired(item.deadline);
+    const submitted = Boolean(item.mySubmission);
 
-      if (filter === "expired") {
-        return isExpired(item.deadline) && !submitted;
-      }
+    if (filter === "expired" && !isExpired) return false;
+    if (filter === "submitted" && !submitted) return false;
+    if (filter === "pending" && (submitted || isExpired)) return false;
 
-      return true;
-    })
-    .sort((a, b) =>
-      new Date(a.deadline) - new Date(b.deadline)
-    );
+    return true;
+  });
 
-
-  $("assignmentList").innerHTML = items.length
+  container.innerHTML = items.length
     ? items.map(item => {
-        const submitted = (item.submissions || []).some(
-          submission =>
-            String(submission.userId) === String(user.id)
-        );
-
-        const expired = isExpired(item.deadline);
-
-        const className = classes.find(classItem =>
-          String(classItem.id) === String(item.classId)
-        )?.name || "Class";
+        const isExpired = expired(item.deadline);
+        const submitted = Boolean(item.mySubmission);
 
         return `
-          <article class="data-card glass">
+          <article class="panel glass">
+            <p class="eyebrow">
+              ${escapeHTML(item.subject || "Assignment")}
+            </p>
 
-            <span class="badge ${
-              submitted ? "success" : expired ? "danger" : "warning"
-            }">
-              ${submitted ? "Submitted" : expired ? "Closed" : "Open"}
+            <h3>${escapeHTML(item.title)}</h3>
+
+            <p class="muted">
+              ${escapeHTML(item.description || "")}
+            </p>
+
+            <p class="muted">
+              Class: ${escapeHTML(item.class_name || "")}
+            </p>
+
+            <p class="muted">
+              Deadline: ${formatDate(item.deadline)}
+            </p>
+
+            <span class="pill">
+              ${
+                isExpired ? "Closed"
+                : submitted ? "Submitted"
+                : "Pending"
+              }
             </span>
 
-            <h3>${esc(item.title)}</h3>
+            ${
+              currentUser.role === "student" &&
+              !submitted &&
+              !isExpired
+                ? `
+                  <button class="btn primary"
+                    data-submit="${escapeHTML(item.id)}">
+                    Submit work
+                  </button>
+                `
+                : ""
+            }
 
-            <p>
-              ${esc(item.subject)} · ${esc(className)}
-            </p>
+            ${
+              submitted
+                ? `<p class="muted small">
+                    File: ${escapeHTML(item.mySubmission.file_name)}
+                   </p>`
+                : ""
+            }
 
-            <p>
-              ${esc(item.description || "No extra instructions.")}
-            </p>
-
-            <p>
-              <strong>Deadline:</strong>
-              ${dateText(item.deadline)}
-            </p>
-
-            <p>
-              <strong>Submissions:</strong>
-              ${(item.submissions || []).length}
-            </p>
-
-            <div class="card-actions">
-
-              ${
-                user.role === "student" && !submitted && !expired
-                  ? `<button class="btn primary"
-                      onclick="submitAssignment('${item.id}')">
-                      Submit work
-                    </button>`
-                  : ""
-              }
-
-              ${
-                user.role === "faculty"
-                  ? `
-                    <button class="btn secondary"
-                      onclick="viewSubmissions('${item.id}')">
-                      View students
-                    </button>
-
-                    <button class="btn danger"
-                      onclick="deleteAssignment('${item.id}')">
-                      Delete
-                    </button>
-                  `
-                  : ""
-              }
-
-            </div>
+            ${
+              currentUser.role === "faculty"
+                ? `
+                  <button class="btn secondary"
+                    data-submissions="${escapeHTML(item.id)}">
+                    View submissions
+                  </button>
+                `
+                : ""
+            }
           </article>
         `;
       }).join("")
-    : `<div class="empty-state">No assignments found.</div>`;
-}
+    : `
+      <div class="empty-state">
+        No assignments found.
+      </div>
+    `;
 
+  container.querySelectorAll("[data-submit]").forEach(button => {
+    button.addEventListener("click", () => {
+      uploadAssignment(button.dataset.submit);
+    });
+  });
+
+  container.querySelectorAll("[data-submissions]").forEach(button => {
+    button.addEventListener("click", () => {
+      loadSubmissions(button.dataset.submissions);
+    });
+  });
+}
 
 $("assignmentSearch")?.addEventListener(
   "input",
@@ -927,774 +903,201 @@ $("assignmentFilter")?.addEventListener(
 
 
 /* =========================================================
-   15. STUDENT — SUBMIT ASSIGNMENT
+   18. UPLOAD ASSIGNMENT — FLASK
 ========================================================= */
 
-function submitAssignment(id) {
-  const items = read(DB.assignments);
+async function uploadAssignment(id) {
+  const file = document.createElement("input");
 
-  const assignment = items.find(item =>
-    String(item.id) === String(id)
-  );
+  file.type = "file";
 
-  const user = currentUser();
-
-  if (!assignment || !user || user.role !== "student") {
-    return toast("Student account required.");
-  }
-
-  if (isExpired(assignment.deadline)) {
-    return toast("Submission portal is closed.");
-  }
-
-  if ((assignment.submissions || []).some(submission =>
-    String(submission.userId) === String(user.id)
-  )) {
-    return toast("Already submitted.");
-  }
-
-  const fileInput = document.createElement("input");
-
-  fileInput.type = "file";
-
-  fileInput.accept =
+  file.accept =
     ".pdf,.doc,.docx,.ppt,.pptx,.png,.jpg,.jpeg,.zip";
 
-  fileInput.onchange = () => {
-    const file = fileInput.files[0];
+  file.onchange = async () => {
+    const selected = file.files?.[0];
 
-    if (!file) return;
+    if (!selected) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      return toast("File must be 5 MB or smaller in this preview.");
-    }
+    const form = new FormData();
 
-    // This preview stores submission details only.
-    // Actual file upload needs a backend upload API.
+    form.append("file", selected);
 
-    assignment.submissions = assignment.submissions || [];
-
-    assignment.submissions.push({
-      userId: user.id,
-      name: user.name,
-      enrollment: user.enrollment || "",
-      fileName: file.name,
-      fileSize: file.size,
-      submittedAt: new Date().toISOString()
-    });
-
-    write(DB.assignments, items);
-
-    renderAll();
-
-    toast("Submission recorded in this browser.");
-  };
-
-  fileInput.click();
-}
-
-
-/* =========================================================
-   16. FACULTY — VIEW SUBMISSIONS
-========================================================= */
-
-function viewSubmissions(id) {
-  const assignment = read(DB.assignments).find(item =>
-    String(item.id) === String(id)
-  );
-
-  if (!assignment) return;
-
-  const classItem = read(DB.classes).find(item =>
-    String(item.id) === String(assignment.classId)
-  );
-
-  const members = classItem?.memberIds || [];
-
-  const users = read(DB.users);
-
-  const submissions = assignment.submissions || [];
-
-  const submittedIds = submissions.map(
-    submission => String(submission.userId)
-  );
-
-  const submitted = submissions.map(submission => `
-    <div class="list-item">
-      <div>
-        <strong>${esc(submission.name)}</strong>
-        <small>
-          ${esc(submission.enrollment || "No enrollment")}
-          · ${esc(submission.fileName)}
-        </small>
-      </div>
-
-      <span class="badge success">Submitted</span>
-    </div>
-  `).join("");
-
-  const pendingUsers = members.filter(id =>
-    !submittedIds.includes(String(id))
-  );
-
-  const pending = pendingUsers.map(id => {
-    const student = users.find(user =>
-      String(user.id) === String(id)
-    );
-
-    return student
-      ? `
-        <div class="list-item">
-          <strong>${esc(student.name)}</strong>
-          <span class="badge warning">Pending</span>
-        </div>
-      `
-      : "";
-  }).join("");
-
-  showModal(
-    assignment.title,
-    `
-      <h3>Submitted (${submissions.length})</h3>
-
-      ${submitted || "<p>No submissions yet.</p>"}
-
-      <h3 style="margin-top:20px">
-        Pending (${pendingUsers.length})
-      </h3>
-
-      ${pending || "<p>No pending students recorded.</p>"}
-    `
-  );
-}
-
-
-/* =========================================================
-   17. FACULTY — DELETE ASSIGNMENT
-========================================================= */
-
-function deleteAssignment(id) {
-  const user = currentUser();
-
-  if (!user || user.role !== "faculty") {
-    return toast("Faculty access only.");
-  }
-
-  const items = read(DB.assignments);
-
-  const assignment = items.find(item =>
-    String(item.id) === String(id)
-  );
-
-  if (!assignment ||
-      String(assignment.facultyId) !== String(user.id)) {
-    return toast("Assignment not found.");
-  }
-
-  if (!confirm("Delete this assignment?")) return;
-
-  write(
-    DB.assignments,
-    items.filter(item => String(item.id) !== String(id))
-  );
-
-  renderAll();
-
-  toast("Assignment deleted.");
-}
-
-
-/* =========================================================
-   18. FACULTY — CREATE CLASS
-========================================================= */
-
-$("classForm")?.addEventListener("submit", event => {
-  event.preventDefault();
-
-  const user = currentUser();
-
-  if (!user || user.role !== "faculty") {
-    return toast("Faculty access only.");
-  }
-
-  const classes = read(DB.classes);
-
-  classes.push({
-    id: uid(),
-
-    facultyId: user.id,
-
-    name: safeValue("className").trim(),
-    course: safeValue("classCourse").trim(),
-    semester: safeValue("classSemester").trim(),
-    section: safeValue("classSection").trim(),
-
-    description: safeValue("classDescription").trim(),
-
-    memberIds: [],
-
-    createdAt: new Date().toISOString()
-  });
-
-  write(DB.classes, classes);
-
-  event.target.reset();
-
-  renderAll();
-
-  toast("Class created.");
-});
-
-
-/* =========================================================
-   19. RENDER CLASSES
-========================================================= */
-
-function renderClasses() {
-  const user = currentUser();
-
-  if (!user) return;
-
-  const classes = myClasses();
-
-  $("classList").innerHTML = classes.length
-    ? classes.map(classItem => `
-        <article class="data-card glass">
-
-          <span class="badge">
-            ${user.role === "faculty" ? "FACULTY CLASS" : "MY CLASS"}
-          </span>
-
-          <h3>${esc(classItem.name)}</h3>
-
-          <p>
-            ${esc(classItem.course)}
-            · Semester ${esc(classItem.semester || "-")}
-            · Section ${esc(classItem.section || "-")}
-          </p>
-
-          <p>
-            ${esc(classItem.description || "No description.")}
-          </p>
-
-          <p>
-            <strong>${(classItem.memberIds || []).length}</strong>
-            students in roster
-          </p>
-
-          ${
-            user.role === "faculty"
-              ? `
-                <div class="card-actions">
-                  <button class="btn secondary"
-                    onclick="viewClassStudents('${classItem.id}')">
-                    View roster
-                  </button>
-                </div>
-              `
-              : ""
-          }
-
-        </article>
-      `).join("")
-    : `<div class="empty-state">No classes available yet.</div>`;
-}
-
-
-/* =========================================================
-   20. FACULTY — VIEW CLASS ROSTER
-========================================================= */
-
-function viewClassStudents(id) {
-  const user = currentUser();
-
-  if (!user || user.role !== "faculty") return;
-
-  const classItem = read(DB.classes).find(item =>
-    String(item.id) === String(id) &&
-    String(item.facultyId) === String(user.id)
-  );
-
-  if (!classItem) return;
-
-  const users = read(DB.users).filter(student =>
-    (classItem.memberIds || []).some(
-      memberId => String(memberId) === String(student.id)
-    )
-  );
-
-  const html = users.map(student => `
-    <div class="list-item">
-      <div>
-        <strong>${esc(student.name)}</strong>
-        <small>
-          ${esc(student.enrollment || "No enrollment")}
-          · ${esc(student.email)}
-        </small>
-      </div>
-    </div>
-  `).join("");
-
-  showModal(
-    classItem.name + " — Student roster",
-    html || "<p>No students in this roster yet.</p>"
-  );
-}
-
-
-/* =========================================================
-   21. FACULTY — PDF ROSTER IMPORT
-========================================================= */
-
-$("rosterForm")?.addEventListener("submit", async event => {
-  event.preventDefault();
-
-  const user = currentUser();
-
-  if (!user || user.role !== "faculty") {
-    return toast("Faculty access only.");
-  }
-
-  const file = $("rosterPdf")?.files?.[0];
-
-  const classId = safeValue("rosterClass");
-
-  if (!file || !classId) {
-    return toast("Choose a class and PDF.");
-  }
-
-  if (file.size > 150 * 1024) {
-    return toast("PDF must be 150 KB or smaller.");
-  }
-
-  if (!window.pdfjsLib) {
-    return toast("PDF reader could not load. Check your internet connection.");
-  }
-
-  try {
-    const data = new Uint8Array(
-      await file.arrayBuffer()
-    );
-
-    const pdf = await pdfjsLib.getDocument({
-      data
-    }).promise;
-
-    let text = "";
-
-    for (let pageNumber = 1;
-         pageNumber <= pdf.numPages;
-         pageNumber++) {
-
-      const page = await pdf.getPage(pageNumber);
-
-      const content = await page.getTextContent();
-
-      text += content.items
-        .map(item => item.str)
-        .join(" ") + "\n";
-    }
-
-    const lines = text
-      .split(/\n/)
-      .map(line => line.trim())
-      .filter(Boolean);
-
-    rosterRows = lines.map(line => {
-      const match = line.match(
-        /([A-Za-z0-9/-]{5,})\s+(.+)/
+    try {
+      await api(
+        `${API.assignments}/${encodeURIComponent(id)}/submit`,
+        {
+          method: "POST",
+          body: form
+        }
       );
 
-      return match
-        ? {
-            enrollment: match[1],
-            name: match[2].trim()
-          }
-        : null;
-    }).filter(Boolean);
+      await loadAssignments();
 
+      renderAll();
 
-    $("rosterPreview").innerHTML = rosterRows.length
-      ? `
-        <p class="muted">
-          Found ${rosterRows.length} possible records.
-          Check the extracted text before importing.
-        </p>
+      showToast("Assignment submitted successfully!");
 
-        ${rosterRows.map(row => `
-          <div class="list-item">
-            <strong>${esc(row.name)}</strong>
-            <small>${esc(row.enrollment)}</small>
-          </div>
-        `).join("")}
+    } catch (error) {
+      showToast(error.message);
+    }
+  };
 
-        <button class="btn primary" id="confirmRoster">
-          Add matching registered students
-        </button>
-      `
-      : `
-        <p class="muted">
-          Could not detect enrollment/name pairs.
-          Use a text-based PDF with enrollment number
-          followed by student name.
-        </p>
-      `;
-
-    $("confirmRoster")?.addEventListener("click", () => {
-      importRoster(classId);
-    });
-
-  } catch (error) {
-    console.error("PDF error:", error);
-
-    toast("Could not read this PDF.");
-  }
-});
+  file.click();
+}
 
 
 /* =========================================================
-   22. IMPORT MATCHING REGISTERED STUDENTS
+   19. FACULTY SUBMISSION TRACKING
 ========================================================= */
 
-function importRoster(classId) {
-  const user = currentUser();
-
-  if (!user || user.role !== "faculty") return;
-
-  const users = read(DB.users);
-
-  const classes = read(DB.classes);
-
-  const classItem = classes.find(item =>
-    String(item.id) === String(classId) &&
-    String(item.facultyId) === String(user.id)
-  );
-
-  if (!classItem) return;
-
-  classItem.memberIds = classItem.memberIds || [];
-
-  let added = 0;
-
-  rosterRows.forEach(row => {
-    const userMatch = users.find(student =>
-      student.role === "student" &&
-      String(student.enrollment || "").toLowerCase() ===
-        String(row.enrollment).toLowerCase()
+async function loadSubmissions(id) {
+  try {
+    const result = await api(
+      `${API.assignments}/${encodeURIComponent(id)}/submissions`
     );
 
-    if (
-      userMatch &&
-      !classItem.memberIds.some(
-        id => String(id) === String(userMatch.id)
-      )
-    ) {
-      classItem.memberIds.push(userMatch.id);
+    const submitted = result.submitted || [];
+    const pending = result.pending || [];
 
-      added++;
-    }
-  });
+    openModal(
+      "Assignment Submissions",
+      `
+        <h3>Submitted (${submitted.length})</h3>
 
-  write(DB.classes, classes);
-
-  $("rosterPreview").innerHTML = `
-    <p class="muted">
-      ${added} registered students matched and added.
-      Unregistered students need to create an account first.
-    </p>
-  `;
-
-  renderAll();
-
-  toast("Roster import completed.");
-}
-
-
-/* =========================================================
-   23. CLASS COMMUNITY — CREATE POST
-========================================================= */
-
-$("postForm")?.addEventListener("submit", event => {
-  event.preventDefault();
-
-  const user = currentUser();
-
-  if (!user) return;
-
-  const classId = safeValue("postClass");
-
-  if (!classId) {
-    return toast("No class available.");
-  }
-
-  if (!myClasses().some(item =>
-    String(item.id) === String(classId)
-  )) {
-    return toast("You are not a member of this class.");
-  }
-
-  const text = safeValue("postText").trim();
-
-  if (!text) {
-    return toast("Write something before publishing.");
-  }
-
-  const posts = read(DB.posts);
-
-  posts.unshift({
-    id: uid(),
-
-    userId: user.id,
-    name: user.name,
-    role: user.role,
-
-    classId,
-    text,
-
-    createdAt: new Date().toISOString()
-  });
-
-  write(DB.posts, posts);
-
-  event.target.reset();
-
-  renderCommunity();
-
-  toast("Post published.");
-});
-
-
-/* =========================================================
-   24. RENDER CLASS COMMUNITY
-========================================================= */
-
-function renderCommunity() {
-  const user = currentUser();
-
-  if (!user) return;
-
-  const classIds = myClasses().map(item =>
-    String(item.id)
-  );
-
-  const classes = read(DB.classes);
-
-  const posts = read(DB.posts).filter(post =>
-    classIds.includes(String(post.classId))
-  );
-
-  $("communityFeed").innerHTML = posts.length
-    ? posts.map(post => {
-        const classItem = classes.find(item =>
-          String(item.id) === String(post.classId)
-        );
-
-        return `
-          <article class="feed-post glass">
-
-            <div class="feed-meta">
-              ${esc(post.name)}
-              · ${esc(post.role)}
-              · ${esc(classItem?.name || "Class")}
-              · ${dateText(post.createdAt)}
+        ${
+          submitted.map(student => `
+            <div class="list-item">
+              <div>
+                <strong>${escapeHTML(student.name)}</strong>
+                <small>${escapeHTML(student.enrollment || "")}</small>
+                <small>${escapeHTML(student.file_name)}</small>
+              </div>
             </div>
+          `).join("") || "<p>No submissions yet.</p>"
+        }
 
-            <p>${esc(post.text)}</p>
+        <hr>
 
-            ${
-              String(post.userId) === String(user.id)
-                ? `
-                  <button class="btn danger"
-                    onclick="deletePost('${post.id}')">
-                    Remove post
-                  </button>
-                `
-                : ""
-            }
+        <h3>Pending (${pending.length})</h3>
 
-          </article>
-        `;
-      }).join("")
-    : `
-      <div class="empty-state">
-        No posts in your classes yet. Start the conversation.
-      </div>
-    `;
+        ${
+          pending.map(student => `
+            <div class="list-item">
+              <strong>${escapeHTML(student.name)}</strong>
+              <small>${escapeHTML(student.enrollment || "")}</small>
+            </div>
+          `).join("") || "<p>No pending students.</p>"
+        }
+      `
+    );
+
+  } catch (error) {
+    showToast(error.message);
+  }
 }
 
 
 /* =========================================================
-   25. DELETE COMMUNITY POST
+   20. DASHBOARD
 ========================================================= */
 
-function deletePost(id) {
-  const user = currentUser();
+function renderDashboard() {
+  if (!currentUser) return;
 
-  if (!user) return;
+  const total = assignmentsCache.length;
 
-  const posts = read(DB.posts);
+  const submitted = assignmentsCache.filter(
+    item => item.mySubmission
+  ).length;
 
-  const post = posts.find(item =>
-    String(item.id) === String(id)
-  );
+  const pending = assignmentsCache.filter(
+    item => !item.mySubmission && !expired(item.deadline)
+  ).length;
 
-  if (!post || String(post.userId) !== String(user.id)) {
-    return toast("You cannot remove this post.");
+  const stats = currentUser.role === "faculty"
+    ? [
+        ["My classes", classesCache.length],
+        ["Assignments", total],
+        ["Submissions", assignmentsCache.reduce(
+          (sum, item) => sum + (item.submission_count || 0), 0
+        )]
+      ]
+    : [
+        ["My classes", classesCache.length],
+        ["Pending tasks", pending],
+        ["Submitted", submitted]
+      ];
+
+  if ($("dashboardStats")) {
+    $("dashboardStats").innerHTML = stats.map(([label, number]) => `
+      <article class="stat-card glass">
+        <small>${escapeHTML(label)}</small>
+        <strong>${number}</strong>
+      </article>
+    `).join("");
   }
 
-  write(
-    DB.posts,
-    posts.filter(item => String(item.id) !== String(id))
-  );
+  const upcoming = assignmentsCache
+    .filter(item => !expired(item.deadline))
+    .sort((a, b) =>
+      new Date(a.deadline) - new Date(b.deadline)
+    )
+    .slice(0, 5);
 
-  renderCommunity();
-
-  toast("Post removed.");
-}
-
-
-/* =========================================================
-   26. SENIOR CONNECT — PUBLISH PROFILE
-========================================================= */
-
-$("seniorForm")?.addEventListener("submit", event => {
-  event.preventDefault();
-
-  const user = currentUser();
-
-  if (!user) return;
-
-  const topic = safeValue("seniorTopic").trim();
-  const course = safeValue("seniorCourse").trim();
-  const bio = safeValue("seniorBio").trim();
-
-  if (!topic || !course || !bio) {
-    return toast("Complete all Senior Connect fields.");
-  }
-
-  const list = read(DB.seniors).filter(item =>
-    String(item.userId) !== String(user.id)
-  );
-
-  list.unshift({
-    id: uid(),
-
-    userId: user.id,
-
-    name: user.name,
-    email: user.email,
-    college: user.college,
-
-    topic,
-    course,
-    bio,
-
-    createdAt: new Date().toISOString()
-  });
-
-  write(DB.seniors, list);
-
-  event.target.reset();
-
-  renderSeniors();
-
-  toast("Your connect card is published.");
-});
-
-
-/* =========================================================
-   27. RENDER SENIOR CONNECT
-========================================================= */
-
-function renderSeniors() {
-  const user = currentUser();
-
-  if (!user) return;
-
-  const list = read(DB.seniors);
-
-  $("seniorList").innerHTML = list.length
-    ? list.map(item => `
-        <article class="data-card glass">
-
-          <span class="badge">STUDENT CONNECT</span>
-
-          <h3>${esc(item.name)}</h3>
-
-          <p>
-            ${esc(item.course)} · ${esc(item.college)}
-          </p>
-
-          <p>
-            <strong>Can help with:</strong>
-            ${esc(item.topic)}
-          </p>
-
-          <p>${esc(item.bio)}</p>
-
-          <div class="card-actions">
-
-            <a class="btn secondary"
-              href="mailto:${encodeURIComponent(item.email || "")}">
-              Contact by email
-            </a>
-
-            ${
-              String(item.userId) === String(user.id)
-                ? `
-                  <button class="btn danger"
-                    onclick="deleteSenior('${item.id}')">
-                    Remove
-                  </button>
-                `
-                : ""
-            }
-
+  if ($("dashboardAssignments")) {
+    $("dashboardAssignments").innerHTML = upcoming.length
+      ? upcoming.map(item => `
+          <div class="list-item">
+            <div>
+              <strong>${escapeHTML(item.title)}</strong>
+              <small>${formatDate(item.deadline)}</small>
+            </div>
+            <span class="pill">
+              ${item.mySubmission ? "Submitted" : "Pending"}
+            </span>
           </div>
-        </article>
-      `).join("")
-    : `<div class="empty-state">No connect cards yet.</div>`;
-}
-
-
-/* =========================================================
-   28. DELETE SENIOR CONNECT CARD
-========================================================= */
-
-function deleteSenior(id) {
-  const user = currentUser();
-
-  if (!user) return;
-
-  const list = read(DB.seniors);
-
-  const item = list.find(entry =>
-    String(entry.id) === String(id)
-  );
-
-  if (!item || String(item.userId) !== String(user.id)) {
-    return toast("You cannot remove this card.");
+        `).join("")
+      : `<p class="muted">No upcoming assignments.</p>`;
   }
 
-  write(
-    DB.seniors,
-    list.filter(entry => String(entry.id) !== String(id))
-  );
+  if ($("dashboardClasses")) {
+    $("dashboardClasses").innerHTML = classesCache.length
+      ? classesCache.slice(0, 5).map(item => `
+          <div class="list-item">
+            <strong>${escapeHTML(item.name)}</strong>
+            <small>${escapeHTML(item.course || "")}</small>
+          </div>
+        `).join("")
+      : `<p class="muted">No classes yet.</p>`;
+  }
 
-  renderSeniors();
+  const percentage = total
+    ? Math.round(submitted / total * 100)
+    : 0;
 
-  toast("Connect card removed.");
+  if ($("progressOverview")) {
+    $("progressOverview").innerHTML = `
+      <strong>${percentage}% completed</strong>
+      <div class="progress-track">
+        <span style="width:${percentage}%"></span>
+      </div>
+      <p class="muted small">
+        ${submitted} of ${total} assignments completed.
+      </p>
+    `;
+  }
 }
 
 
 /* =========================================================
-   29. PROFILE — DISPLAY USER DETAILS
+   21. PROFILE — BACKEND
 ========================================================= */
 
 function renderProfile() {
-  const user = currentUser();
+  if (!currentUser) return;
 
-  if (!user) return;
+  const user = currentUser;
 
   const fields = {
     profileName: user.name,
@@ -1708,792 +1111,485 @@ function renderProfile() {
     profileFacultyId: user.facultyId
   };
 
-  Object.entries(fields).forEach(([id, value]) => {
-    if ($(id)) {
-      $(id).value = value || "";
-    }
+  Object.entries(fields).forEach(([id, val]) => {
+    if ($(id)) $(id).value = val || "";
   });
 
-  $("profileStudentFields")?.classList.toggle(
-    "hidden",
-    user.role !== "student"
-  );
-
-  $("profileFacultyFields")?.classList.toggle(
-    "hidden",
-    user.role !== "faculty"
-  );
-
   setText("idName", user.name);
+  setText("idRole", user.role.toUpperCase());
 
-  setText(
-    "idRole",
-    (user.role || "student").toUpperCase()
+  const photo = localStorage.getItem(
+    STORAGE.photo + "_" + user.id
   );
 
-  const photo = $("idPhoto");
-
-  if (photo) {
-    photo.innerHTML = user.photo
-      ? `<img src="${user.photo}" alt="Profile">`
-      : esc((user.name || "U").charAt(0).toUpperCase());
+  if ($("idPhoto")) {
+    $("idPhoto").innerHTML = photo
+      ? `<img src="${photo}" alt="Profile photo">`
+      : escapeHTML(initials(user.name));
   }
 
-  if (user.role === "student") {
+  if ($("idDetails")) {
     $("idDetails").innerHTML = `
-      <div>
-        <span>Enrollment</span>
-        <strong>${esc(user.enrollment || "-")}</strong>
-      </div>
-
-      <div>
-        <span>Course</span>
-        <strong>${esc(user.course || "-")}</strong>
-      </div>
-
-      <div>
-        <span>Semester</span>
-        <strong>${esc(user.semester || "-")}</strong>
-      </div>
-
-      <div>
-        <span>College</span>
-        <strong>${esc(user.college || "-")}</strong>
-      </div>
-    `;
-  } else {
-    $("idDetails").innerHTML = `
-      <div>
-        <span>Faculty ID</span>
-        <strong>${esc(user.facultyId || "-")}</strong>
-      </div>
-
-      <div>
-        <span>Department</span>
-        <strong>${esc(user.department || "-")}</strong>
-      </div>
-
-      <div>
-        <span>College</span>
-        <strong>${esc(user.college || "-")}</strong>
-      </div>
+      <p><strong>Email</strong><br>${escapeHTML(user.email)}</p>
+      <p><strong>College</strong><br>${escapeHTML(user.college || "-")}</p>
+      ${
+        user.role === "student"
+          ? `
+            <p><strong>Enrollment</strong><br>
+              ${escapeHTML(user.enrollment || "-")}
+            </p>
+            <p><strong>Course</strong><br>
+              ${escapeHTML(user.course || "-")}
+            </p>
+          `
+          : `
+            <p><strong>Department</strong><br>
+              ${escapeHTML(user.department || "-")}
+            </p>
+            <p><strong>Faculty ID</strong><br>
+              ${escapeHTML(user.facultyId || "-")}
+            </p>
+          `
+      }
     `;
   }
 }
-
-
-/* =========================================================
-   30. PROFILE PHOTO
-========================================================= */
-
-$("profilePhoto")?.addEventListener("change", event => {
-  const file = event.target.files[0];
-
-  if (!file) return;
-
-  if (file.size > 1024 * 1024) {
-    event.target.value = "";
-
-    return toast("Choose an image under 1 MB.");
-  }
-
-  if (!file.type.startsWith("image/")) {
-    event.target.value = "";
-
-    return toast("Choose a valid image.");
-  }
-
-  const reader = new FileReader();
-
-  reader.onload = () => {
-    const user = currentUser();
-
-    if (!user) return;
-
-    user.photo = reader.result;
-
-    updateUserInStorage(user);
-
-    renderProfile();
-
-    const avatar = $("sideAvatar");
-
-    if (avatar) {
-      avatar.innerHTML = `
-        <img src="${reader.result}" alt="Profile">
-      `;
-    }
-
-    toast("Profile photo updated.");
-  };
-
-  reader.readAsDataURL(file);
-});
-
-
-/* =========================================================
-   31. PROFILE SAVE — BACKEND CONNECTED
-
-   This fixes the previous login-screen redirect bug.
-
-   The backend returns a successful response first.
-   Then we update the cached user.
-   We do NOT call openApp() here.
-========================================================= */
 
 $("profileForm")?.addEventListener("submit", async event => {
   event.preventDefault();
 
-  const user = currentUser();
+  if (!currentUser) return;
 
-  if (!user) {
-    showLoginScreen();
+  const button = event.submitter;
 
-    return;
-  }
-
-  const profileData = {
-    name: safeValue("profileName").trim(),
-    phone: safeValue("profilePhone").trim(),
-    college: safeValue("profileCollege").trim(),
-
-    enrollment: safeValue("profileEnrollment").trim(),
-    course: safeValue("profileCourse").trim(),
-    semester: safeValue("profileSemester").trim(),
-
-    department: safeValue("profileDepartment").trim(),
-    facultyId: safeValue("profileFacultyId").trim()
+  const data = {
+    name: value("profileName"),
+    phone: value("profilePhone"),
+    college: value("profileCollege"),
+    enrollment: value("profileEnrollment"),
+    course: value("profileCourse"),
+    semester: value("profileSemester"),
+    department: value("profileDepartment")
   };
 
-  if (!profileData.name) {
-    return toast("Name cannot be empty.");
-  }
-
-  // Local preview accounts do not exist in the backend yet.
-  if (user.authSource !== "backend") {
-    const updatedUser = {
-      ...user,
-      ...profileData
-    };
-
-    updateUserInStorage(updatedUser);
-
-    refreshProfileAfterSave(updatedUser);
-
-    toast("Profile updated in this browser.");
-
-    return;
-  }
+  setLoading(button, true);
 
   try {
-    const response = await fetch(
-      `/api/profile/${encodeURIComponent(user.id)}`,
-      {
-        method: "PUT",
-
-        headers: {
-          "Content-Type": "application/json"
-        },
-
-        body: JSON.stringify(profileData)
-      }
+    const result = await api(
+      API.profile,
+      jsonOptions("PUT", data)
     );
 
-    const data = await response.json();
+    currentUser = result.user;
 
-    if (!response.ok) {
-      return toast(
-        data.error || "Profile update failed."
+    saveData(STORAGE.user, currentUser);
+
+    const photoFile = $("profilePhoto")?.files?.[0];
+
+    if (photoFile) {
+      if (photoFile.size > 2 * 1024 * 1024) {
+        throw new Error("Profile photo must be below 2 MB.");
+      }
+
+      const photoData = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(photoFile);
+      });
+
+      localStorage.setItem(
+        STORAGE.photo + "_" + currentUser.id,
+        photoData
       );
     }
 
-    const updatedUser = {
-      ...user,
-      ...profileData
-    };
+    updateUserInterface();
+    renderProfile();
 
-    updateUserInStorage(updatedUser);
-
-    refreshProfileAfterSave(updatedUser);
-
-    toast("Profile updated successfully!");
+    showToast("Profile updated successfully!");
 
   } catch (error) {
-    console.error("Profile update error:", error);
-
-    toast("Could not save profile. Check Python backend.");
+    showToast(error.message);
+  } finally {
+    setLoading(button, false);
   }
 });
 
 
 /* =========================================================
-   32. REFRESH PROFILE WITHOUT LOGGING OUT
+   22. DAILY HUB — CHALLENGES
 ========================================================= */
 
-function refreshProfileAfterSave(user) {
-  // Update profile card and form.
-  renderProfile();
-
-  // Update sidebar name.
-  setText("sideName", user.name);
-
-  // Update dashboard welcome name.
-  setText(
-    "welcomeName",
-    (user.name || "User").split(" ")[0]
-  );
-
-  // Update current page title if needed.
-  setText(
-    "roleBadge",
-    (user.role || "student").toUpperCase()
-  );
-
-  // Keep the current page open.
-  // Do not call openApp() here.
-}
-
-
-/* =========================================================
-   33. DAILY CHALLENGE QUESTIONS
-========================================================= */
-
-const sampleQuestions = [
+const DAILY_QUESTIONS = [
   {
-    q: "Which data structure follows FIFO?",
-    options: ["Stack", "Queue", "Tree", "Graph"],
-    correct: 1,
-    explanation: "Queue follows First In, First Out."
+    question: "Which language is mainly used for web page structure?",
+    options: ["CSS", "HTML", "Python", "SQL"],
+    answer: 1
   },
   {
-    q: "Which language is commonly used for web page structure?",
-    options: ["HTML", "SQL", "C", "Python"],
-    correct: 0,
-    explanation: "HTML defines the structure of web pages."
-  },
-  {
-    q: "What does CPU stand for?",
+    question: "What does CPU stand for?",
     options: [
-      "Central Program Unit",
       "Central Processing Unit",
       "Computer Personal Unit",
-      "Control Processing Utility"
+      "Central Program Utility",
+      "Control Processing User"
     ],
-    correct: 1,
-    explanation: "CPU means Central Processing Unit."
+    answer: 0
   },
   {
-    q: "Which number is binary for decimal 2?",
-    options: ["01", "10", "11", "100"],
-    correct: 1,
-    explanation: "Binary 10 represents decimal 2."
+    question: "Which data structure follows FIFO?",
+    options: ["Stack", "Tree", "Queue", "Graph"],
+    answer: 2
   },
   {
-    q: "Which one is a relational database?",
-    options: ["MySQL", "HTML", "CSS", "Git"],
-    correct: 0,
-    explanation: "MySQL is a relational database management system."
+    question: "Which language is commonly used for Flask?",
+    options: ["Java", "Python", "C", "Swift"],
+    answer: 1
+  },
+  {
+    question: "Which symbol starts a Python comment?",
+    options: ["//", "#", "/*", "<!--"],
+    answer: 1
   }
 ];
 
-
-/* =========================================================
-   34. START DAILY CHALLENGE
-========================================================= */
-
-$("startDailyChallenge")?.addEventListener("click", () => {
-  const user = currentUser();
-
-  if (!user) return;
-
-  const today = new Date()
-    .toISOString()
-    .slice(0, 10);
-
-  const alreadyCompleted = read(DB.attempts).some(attempt =>
-    String(attempt.userId) === String(user.id) &&
-    attempt.date === today &&
-    attempt.type === "daily"
-  );
-
-  if (alreadyCompleted) {
-    return toast("You have already completed today's challenge.");
-  }
-
-  startQuiz(
-    "Daily Challenge",
-    sampleQuestions,
-    "daily"
-  );
-});
-
-
-/* =========================================================
-   35. FACULTY — CREATE QUIZ
-========================================================= */
-
-$("facultyQuizForm")?.addEventListener("submit", event => {
-  event.preventDefault();
-
-  const user = currentUser();
-
-  if (!user || user.role !== "faculty") {
-    return toast("Faculty access only.");
-  }
-
-  const classId = safeValue("quizClass");
-
-  if (!classId) {
-    return toast("Create a class first.");
-  }
-
-  const deadlineValue = safeValue("quizDeadline");
-
-  if (!deadlineValue) {
-    return toast("Select a quiz deadline.");
-  }
-
-  const deadline = new Date(deadlineValue);
-
-  if (Number.isNaN(deadline.getTime())) {
-    return toast("Invalid quiz deadline.");
-  }
-
-  const quizzes = read(DB.quizzes);
-
-  quizzes.unshift({
-    id: uid(),
-
-    facultyId: user.id,
-    classId,
-
-    title: safeValue("quizTitle").trim(),
-
-    question: {
-      q: safeValue("quizQuestion").trim(),
-
-      options: [
-        safeValue("quizA").trim(),
-        safeValue("quizB").trim(),
-        safeValue("quizC").trim(),
-        safeValue("quizD").trim()
-      ],
-
-      correct: Number(safeValue("quizCorrect")),
-
-      explanation: safeValue("quizExplanation").trim()
-    },
-
-    deadline: deadline.toISOString(),
-
-    createdAt: new Date().toISOString()
-  });
-
-  write(DB.quizzes, quizzes);
-
-  event.target.reset();
-
-  renderDailyHub();
-
-  toast("Faculty quiz published.");
-});
-
-
-/* =========================================================
-   36. RENDER DAILY HUB
-========================================================= */
-
 function renderDailyHub() {
-  const user = currentUser();
+  const challenges = getData(STORAGE.challenges, []);
 
-  if (!user) return;
-
-  const attempts = read(DB.attempts).filter(attempt =>
-    String(attempt.userId) === String(user.id)
-  );
-
-  setText("challengeCount", attempts.length);
+  setText("challengeCount", challenges.length);
 
   setText(
     "totalPoints",
-    attempts.reduce(
-      (total, attempt) => total + Number(attempt.score || 0),
-      0
-    )
+    challenges.reduce((sum, item) => sum + item.points, 0)
   );
+
+  const last = challenges[challenges.length - 1];
 
   setText(
     "streakCount",
-    calculateStreak(attempts) + " days"
+    last ? "Active" : "0 days"
   );
 
-  const today = new Date()
-    .toISOString()
-    .slice(0, 10);
+  if ($("dailyChallengeStatus")) {
+    $("dailyChallengeStatus").textContent =
+      last
+        ? `Last score: ${last.score}/${last.total}`
+        : "You have not completed today's challenge.";
+  }
 
-  const completedToday = attempts.some(attempt =>
-    attempt.type === "daily" &&
-    attempt.date === today
-  );
-
-  setText(
-    "dailyChallengeStatus",
-    completedToday
-      ? "Today's challenge completed. Come back tomorrow!"
-      : "Your daily challenge is ready."
-  );
-
-
-  const quizzes = read(DB.quizzes).filter(quiz =>
-    myClasses().some(classItem =>
-      String(classItem.id) === String(quiz.classId)
-    ) &&
-    !isExpired(quiz.deadline)
-  );
-
-  $("facultyQuizList").innerHTML = quizzes.length
-    ? quizzes.map(quiz => {
-        const completed = attempts.some(attempt =>
-          String(attempt.quizId) === String(quiz.id)
-        );
-
-        return `
-          <div class="list-item">
-
-            <div>
-              <strong>${esc(quiz.title)}</strong>
-              <small>Due ${dateText(quiz.deadline)}</small>
-            </div>
-
-            ${
-              completed
-                ? `<span class="badge success">Completed</span>`
-                : `
-                  <button class="btn primary"
-                    onclick="startFacultyQuiz('${quiz.id}')">
-                    Take quiz
-                  </button>
-                `
-            }
-
-          </div>
-        `;
-      }).join("")
-    : `
-      <div class="empty-state">
-        No faculty quizzes available for your classes.
-      </div>
-    `;
-
+  renderFacultyQuizzes();
   renderLeaderboard();
 }
 
-
-/* =========================================================
-   37. CALCULATE LEARNING STREAK
-========================================================= */
-
-function calculateStreak(attempts) {
-  const days = [
-    ...new Set(attempts.map(attempt => attempt.date))
-  ].sort().reverse();
-
-  if (!days.length) return 0;
-
-  let streak = 0;
-
-  const date = new Date();
-
-  date.setHours(0, 0, 0, 0);
-
-  const today = date.toISOString().slice(0, 10);
-
-  if (days[0] !== today) {
-    date.setDate(date.getDate() - 1);
-  }
-
-  for (const day of days) {
-    const expected = date.toISOString().slice(0, 10);
-
-    if (day !== expected) break;
-
-    streak++;
-
-    date.setDate(date.getDate() - 1);
-  }
-
-  return streak;
-}
-
-
-/* =========================================================
-   38. START FACULTY QUIZ
-========================================================= */
-
-function startFacultyQuiz(id) {
-  const quiz = read(DB.quizzes).find(item =>
-    String(item.id) === String(id)
-  );
-
-  if (!quiz || isExpired(quiz.deadline)) {
-    return toast("This quiz is closed.");
-  }
-
-  const user = currentUser();
-
-  if (!user) return;
-
-  const alreadyAttempted = read(DB.attempts).some(attempt =>
-    String(attempt.userId) === String(user.id) &&
-    String(attempt.quizId) === String(id)
-  );
-
-  if (alreadyAttempted) {
-    return toast("You have already attempted this quiz.");
-  }
-
+$("startDailyChallenge")?.addEventListener("click", () => {
   startQuiz(
-    quiz.title,
-    [quiz.question],
-    "faculty",
-    id
+    "Daily Challenge",
+    DAILY_QUESTIONS,
+    false
   );
-}
+});
 
 
 /* =========================================================
-   39. START QUIZ SESSION
+   23. QUIZ SYSTEM
 ========================================================= */
 
-function startQuiz(title, questions, type, quizId = null) {
-  if (!questions || !questions.length) {
-    return toast("No questions available.");
+function startQuiz(title, questions, published = false) {
+  if (!questions?.length) {
+    return showToast("No questions available.");
   }
 
-  quizSession = {
+  currentQuiz = {
     title,
     questions,
-    type,
-    quizId
+    published
   };
 
-  selectedAnswers = {};
+  currentQuestion = 0;
+  quizAnswers = [];
 
-  setText("quizModalTitle", title);
+  $("quizBackdrop")?.classList.remove("hidden");
 
-  $("quizBackdrop").classList.remove("hidden");
-
-  renderQuizQuestion(0);
+  renderQuizQuestion();
 }
 
+function renderQuizQuestion() {
+  if (!currentQuiz) return;
 
-/* =========================================================
-   40. DISPLAY QUIZ QUESTION
-========================================================= */
+  const question = currentQuiz.questions[currentQuestion];
 
-function renderQuizQuestion(index) {
-  if (!quizSession) return;
+  setText("quizModalTitle", currentQuiz.title);
 
-  const question = quizSession.questions[index];
+  const container = $("quizModalBody");
 
-  if (!question) return;
+  if (!container) return;
 
-  $("quizModalBody").innerHTML = `
-    <p class="muted small">
-      Question ${index + 1} of ${quizSession.questions.length}
+  container.innerHTML = `
+    <p class="muted">
+      Question ${currentQuestion + 1}
+      of ${currentQuiz.questions.length}
     </p>
 
-    <div class="modal-question">
-      <strong>${esc(question.q)}</strong>
-    </div>
+    <h3>${escapeHTML(question.question)}</h3>
 
-    <div>
-      ${question.options.map((option, optionIndex) => `
-        <button
-          class="answer-option ${
-            selectedAnswers[index] === optionIndex
-              ? "selected"
-              : ""
-          }"
-          data-answer="${optionIndex}"
-        >
-          ${String.fromCharCode(65 + optionIndex)}.
-          ${esc(option)}
+    <div class="quiz-options">
+      ${question.options.map((option, index) => `
+        <button class="quiz-option"
+          data-answer="${index}">
+          ${String.fromCharCode(65 + index)}.
+          ${escapeHTML(option)}
         </button>
       `).join("")}
     </div>
 
-    <div class="panel-head" style="margin-top:18px">
-
-      <span class="muted small">
-        ${Object.keys(selectedAnswers).length} answered
-      </span>
-
-      <button id="nextQuestion" class="btn primary">
-        ${
-          index === quizSession.questions.length - 1
-            ? "Finish quiz"
-            : "Next →"
-        }
-      </button>
-
-    </div>
+    <button class="btn primary full" id="nextQuestion">
+      ${currentQuestion === currentQuiz.questions.length - 1
+        ? "Finish quiz"
+        : "Next question"}
+    </button>
   `;
 
+  container.querySelectorAll("[data-answer]").forEach(button => {
+    button.addEventListener("click", () => {
+      quizAnswers[currentQuestion] =
+        Number(button.dataset.answer);
 
-  $("quizModalBody")
-    .querySelectorAll("[data-answer]")
-    .forEach(button => {
-      button.addEventListener("click", () => {
-        selectedAnswers[index] = Number(button.dataset.answer);
-
-        renderQuizQuestion(index);
+      container.querySelectorAll("[data-answer]").forEach(item => {
+        item.classList.toggle("active", item === button);
       });
     });
+  });
 
-
-  $("nextQuestion").addEventListener("click", () => {
-    if (selectedAnswers[index] === undefined) {
-      return toast("Select an answer first.");
+  $("nextQuestion")?.addEventListener("click", () => {
+    if (quizAnswers[currentQuestion] === undefined) {
+      return showToast("Select an answer.");
     }
 
-    if (index < quizSession.questions.length - 1) {
-      renderQuizQuestion(index + 1);
+    if (currentQuestion < currentQuiz.questions.length - 1) {
+      currentQuestion++;
+      renderQuizQuestion();
     } else {
       finishQuiz();
     }
   });
 }
 
-
-/* =========================================================
-   41. FINISH QUIZ
-========================================================= */
-
 function finishQuiz() {
-  const user = currentUser();
-
-  if (!user || !quizSession) return;
-
-  const questions = quizSession.questions;
-
-  let correct = 0;
-
-  questions.forEach((question, index) => {
-    if (selectedAnswers[index] === question.correct) {
-      correct++;
-    }
-  });
+  const correct = currentQuiz.questions.filter(
+    (question, index) =>
+      Number(question.answer) === quizAnswers[index]
+  ).length;
 
   const score = Math.round(
-    (correct / questions.length) * 50
+    correct / currentQuiz.questions.length * 100
   );
 
-  const attempts = read(DB.attempts);
+  if (!currentQuiz.published) {
+    const history = getData(STORAGE.challenges, []);
 
-  attempts.push({
-    id: uid(),
+    history.push({
+      date: new Date().toISOString(),
+      score: correct,
+      total: currentQuiz.questions.length,
+      points: correct * 10
+    });
 
-    userId: user.id,
-    name: user.name,
-    role: user.role,
+    saveData(STORAGE.challenges, history);
+  } else {
+    const attempts = getData(STORAGE.attempts, []);
 
-    branch: user.course || "Not specified",
-    semester: user.semester || "-",
-    college: user.college || "",
+    attempts.push({
+      title: currentQuiz.title,
+      score,
+      user: currentUser.id,
+      date: new Date().toISOString()
+    });
 
-    score,
-    correct,
-    total: questions.length,
-
-    type: quizSession.type,
-    quizId: quizSession.quizId,
-
-    date: new Date().toISOString().slice(0, 10),
-
-    createdAt: new Date().toISOString()
-  });
-
-  write(DB.attempts, attempts);
-
+    saveData(STORAGE.attempts, attempts);
+  }
 
   $("quizModalBody").innerHTML = `
-    <div class="empty-state">
-
-      <h2>${score} / 50 points</h2>
-
-      <p>
-        You answered ${correct}
-        out of ${questions.length} correctly.
+    <div class="quiz-result">
+      <h2>${score}%</h2>
+      <h3>Challenge completed!</h3>
+      <p>You got ${correct} out of
+        ${currentQuiz.questions.length} correct.
       </p>
-
+      <button class="btn primary full" id="finishQuiz">
+        Close
+      </button>
     </div>
-
-    ${questions.map((question, index) => `
-      <div class="modal-question">
-
-        <strong>${esc(question.q)}</strong>
-
-        <p class="${
-          selectedAnswers[index] === question.correct
-            ? "muted"
-            : "badge danger"
-        }">
-          Your answer:
-          ${esc(question.options[selectedAnswers[index]])}
-        </p>
-
-        <p class="badge success">
-          Correct:
-          ${esc(question.options[question.correct])}
-        </p>
-
-        <p class="muted small">
-          ${esc(question.explanation || "")}
-        </p>
-
-      </div>
-    `).join("")}
-
-    <button class="btn primary full" id="finishQuizButton">
-      Done
-    </button>
   `;
 
-
-  $("finishQuizButton").addEventListener(
-    "click",
-    closeQuiz
-  );
-
-  renderAll();
+  $("finishQuiz")?.addEventListener("click", () => {
+    $("quizBackdrop")?.classList.add("hidden");
+    currentQuiz = null;
+    renderDailyHub();
+  });
 }
 
-
-/* =========================================================
-   42. CLOSE QUIZ
-========================================================= */
-
-function closeQuiz() {
+$("quizClose")?.addEventListener("click", () => {
   $("quizBackdrop")?.classList.add("hidden");
-
-  quizSession = null;
-
-  selectedAnswers = {};
-}
-
-$("quizClose")?.addEventListener("click", closeQuiz);
-
-$("quizBackdrop")?.addEventListener("click", event => {
-  if (event.target === $("quizBackdrop")) {
-    closeQuiz();
-  }
+  currentQuiz = null;
 });
 
 
 /* =========================================================
-   43. LEADERBOARD
+   24. FACULTY QUIZ CREATION
 ========================================================= */
+
+$("facultyQuizForm")?.addEventListener("submit", event => {
+  event.preventDefault();
+
+  if (currentUser?.role !== "faculty") {
+    return showToast("Faculty access required.");
+  }
+
+  const quiz = {
+    id: uid(),
+    facultyId: currentUser.id,
+    classId: value("quizClass"),
+    title: value("quizTitle"),
+    deadline: value("quizDeadline"),
+    explanation: value("quizExplanation"),
+    questions: [{
+      question: value("quizQuestion"),
+      options: [
+        value("quizA"),
+        value("quizB"),
+        value("quizC"),
+        value("quizD")
+      ],
+      answer: Number(value("quizCorrect"))
+    }]
+  };
+
+  if (!quiz.title || !quiz.classId || !quiz.questions[0].question) {
+    return showToast("Complete all quiz details.");
+  }
+
+  if (expired(quiz.deadline)) {
+    return showToast("Select a future deadline.");
+  }
+
+  const quizzes = getData(STORAGE.quizzes, []);
+
+  quizzes.push(quiz);
+
+  saveData(STORAGE.quizzes, quizzes);
+
+  event.target.reset();
+
+  renderDailyHub();
+
+  showToast("Quiz published!");
+});
+
+
+/* =========================================================
+   25. FACULTY QUIZ LIST
+========================================================= */
+
+function renderFacultyQuizzes() {
+  const container = $("facultyQuizList");
+
+  if (!container) return;
+
+  const quizzes = getData(STORAGE.quizzes, []);
+
+  const visible = quizzes.filter(item =>
+    currentUser.role === "faculty"
+      ? item.facultyId === currentUser.id
+      : classesCache.some(c => c.id === item.classId)
+  );
+
+  container.innerHTML = visible.length
+    ? visible.map(item => `
+        <div class="list-item">
+          <div>
+            <strong>${escapeHTML(item.title)}</strong>
+            <small>${formatDate(item.deadline)}</small>
+          </div>
+          <button class="btn secondary"
+            data-play-quiz="${escapeHTML(item.id)}">
+            Start
+          </button>
+        </div>
+      `).join("")
+    : `<p class="muted">No quizzes available.</p>`;
+
+  container.querySelectorAll("[data-play-quiz]").forEach(button => {
+    button.addEventListener("click", () => {
+      const quiz = visible.find(
+        item => item.id === button.dataset.playQuiz
+      );
+
+      if (!quiz || expired(quiz.deadline)) {
+        return showToast("This quiz has expired.");
+      }
+
+      startQuiz(quiz.title, quiz.questions, true);
+    });
+  });
+}
+
+
+/* =========================================================
+   26. LEADERBOARD
+========================================================= */
+
+function renderLeaderboard() {
+  const container = $("leaderboardList");
+
+  if (!container) return;
+
+  const period = $("leaderboardPeriod")?.value || "all";
+
+  const attempts = getData(STORAGE.attempts, []);
+
+  const today = new Date();
+
+  const filtered = attempts.filter(item => {
+    const date = new Date(item.date);
+
+    if (period === "weekly") {
+      return (today - date) <= 7 * 86400000;
+    }
+
+    if (period === "monthly") {
+      return (
+        today.getMonth() === date.getMonth() &&
+        today.getFullYear() === date.getFullYear()
+      );
+    }
+
+    return true;
+  });
+
+  const totals = {};
+
+  filtered.forEach(item => {
+    totals[item.user] = (totals[item.user] || 0) + item.score;
+  });
+
+  const ownScore = totals[currentUser.id] || 0;
+
+  container.innerHTML = `
+    <div class="list-item">
+      <strong>${escapeHTML(currentUser.name)}</strong>
+      <span>${ownScore} points</span>
+    </div>
+    <p class="tiny-note">
+      Current browser's stored quiz scores.
+    </p>
+  `;
+
+  setText(
+    "leaderboardScope",
+    "Local preview — shared rankings are not yet connected."
+  );
+}
 
 $("leaderboardPeriod")?.addEventListener(
   "change",
@@ -2501,138 +1597,258 @@ $("leaderboardPeriod")?.addEventListener(
 );
 
 
-function renderLeaderboard() {
-  const user = currentUser();
+/* =========================================================
+   27. CLASS COMMUNITY
+========================================================= */
 
-  if (!user) return;
+function renderCommunity() {
+  const container = $("communityFeed");
 
-  const period = safeValue("leaderboardPeriod") || "weekly";
+  if (!container) return;
 
-  const now = new Date();
+  const posts = getData(STORAGE.posts, []);
 
-  const attempts = read(DB.attempts).filter(attempt => {
-    if (period === "all") return true;
+  container.innerHTML = posts.length
+    ? posts.slice().reverse().map(post => `
+        <article class="panel glass">
+          <p class="eyebrow">${escapeHTML(post.className)}</p>
+          <h3>${escapeHTML(post.author)}</h3>
+          <p>${escapeHTML(post.text)}</p>
+          <small class="muted">${formatDate(post.date)}</small>
 
-    const date = new Date(attempt.createdAt);
+          ${
+            post.userId === currentUser.id
+              ? `<button class="btn secondary"
+                  data-delete-post="${escapeHTML(post.id)}">
+                  Delete
+                 </button>`
+              : ""
+          }
+        </article>
+      `).join("")
+    : `<p class="muted">No community posts yet.</p>`;
 
-    const age = (now - date) / 86400000;
+  container.querySelectorAll("[data-delete-post]").forEach(button => {
+    button.addEventListener("click", () => {
+      const remaining = getData(STORAGE.posts, []).filter(
+        item => item.id !== button.dataset.deletePost
+      );
 
-    return period === "weekly"
-      ? age <= 7
-      : age <= 31;
+      saveData(STORAGE.posts, remaining);
+
+      renderCommunity();
+
+      showToast("Post deleted.");
+    });
   });
-
-  const branch = (user.course || "").toLowerCase();
-
-  const semester = String(user.semester || "");
-
-  const classmates = attempts.filter(attempt =>
-    (attempt.branch || "").toLowerCase() === branch &&
-    String(attempt.semester || "") === semester
-  );
-
-  const totals = {};
-
-  classmates.forEach(attempt => {
-    if (!totals[attempt.userId]) {
-      totals[attempt.userId] = {
-        name: attempt.name,
-        score: 0,
-        attempts: 0
-      };
-    }
-
-    totals[attempt.userId].score += attempt.score;
-
-    totals[attempt.userId].attempts++;
-  });
-
-  const ranking = Object.entries(totals)
-    .map(([id, details]) => ({
-      id,
-      ...details
-    }))
-    .sort((a, b) =>
-      b.score - a.score ||
-      b.attempts - a.attempts
-    );
-
-  const myRank = ranking.findIndex(item =>
-    String(item.id) === String(user.id)
-  ) + 1;
-
-  setText(
-    "leaderboardScope",
-    `Showing this browser's ${user.course || "unspecified branch"} · Semester ${semester || "-"} preview.`
-  );
-
-  $("leaderboardList").innerHTML = ranking.length
-    ? ranking.map((item, index) => `
-        <div class="list-item">
-
-          <div>
-            <strong>
-              #${index + 1} · ${esc(item.name)}
-              ${String(item.id) === String(user.id) ? "(You)" : ""}
-            </strong>
-
-            <small>
-              ${item.attempts} quiz attempts
-            </small>
-          </div>
-
-          <strong>${item.score} pts</strong>
-
-        </div>
-      `).join("") + `
-        <p class="muted small">
-          Your position:
-          ${myRank ? "#" + myRank : "Not ranked yet"}
-        </p>
-      `
-    : `
-      <div class="empty-state">
-        No scores yet. Complete a challenge to appear here.
-      </div>
-    `;
 }
+
+$("postForm")?.addEventListener("submit", event => {
+  event.preventDefault();
+
+  const classId = value("postClass");
+  const text = value("postText");
+
+  const selectedClass = classesCache.find(
+    item => item.id === classId
+  );
+
+  if (!selectedClass || !text) {
+    return showToast("Select a class and enter your post.");
+  }
+
+  const posts = getData(STORAGE.posts, []);
+
+  posts.push({
+    id: uid(),
+    userId: currentUser.id,
+    author: currentUser.name,
+    classId,
+    className: selectedClass.name,
+    text,
+    date: new Date().toISOString()
+  });
+
+  saveData(STORAGE.posts, posts);
+
+  event.target.reset();
+
+  renderCommunity();
+
+  showToast("Post published!");
+});
 
 
 /* =========================================================
-   44. GENERAL MODAL
+   28. SENIOR CONNECT
 ========================================================= */
 
-function showModal(title, html) {
+function renderSeniors() {
+  const container = $("seniorList");
+
+  if (!container) return;
+
+  const entries = getData(STORAGE.seniors, []);
+
+  container.innerHTML = entries.length
+    ? entries.map(item => `
+        <article class="panel glass">
+          <p class="eyebrow">${escapeHTML(item.topic)}</p>
+          <h3>${escapeHTML(item.name)}</h3>
+          <p class="muted">${escapeHTML(item.course)}</p>
+          <p>${escapeHTML(item.bio)}</p>
+          <small>${formatDate(item.date)}</small>
+
+          ${
+            item.userId === currentUser.id
+              ? `<button class="btn secondary"
+                  data-delete-senior="${escapeHTML(item.id)}">
+                  Remove
+                 </button>`
+              : ""
+          }
+        </article>
+      `).join("")
+    : `<p class="muted">No senior connect cards yet.</p>`;
+
+  container.querySelectorAll("[data-delete-senior]").forEach(button => {
+    button.addEventListener("click", () => {
+      const remaining = getData(STORAGE.seniors, []).filter(
+        item => item.id !== button.dataset.deleteSenior
+      );
+
+      saveData(STORAGE.seniors, remaining);
+
+      renderSeniors();
+
+      showToast("Card removed.");
+    });
+  });
+}
+
+$("seniorForm")?.addEventListener("submit", event => {
+  event.preventDefault();
+
+  const topic = value("seniorTopic");
+  const course = value("seniorCourse");
+  const bio = value("seniorBio");
+
+  if (!topic || !course || !bio) {
+    return showToast("Complete all fields.");
+  }
+
+  const entries = getData(STORAGE.seniors, []);
+
+  entries.push({
+    id: uid(),
+    userId: currentUser.id,
+    name: currentUser.name,
+    topic,
+    course,
+    bio,
+    date: new Date().toISOString()
+  });
+
+  saveData(STORAGE.seniors, entries);
+
+  event.target.reset();
+
+  renderSeniors();
+
+  showToast("Senior Connect card published!");
+});
+
+
+/* =========================================================
+   29. PDF ROSTER INPUT
+========================================================= */
+
+$("rosterForm")?.addEventListener("submit", event => {
+  event.preventDefault();
+
+  const file = $("rosterPdf")?.files?.[0];
+
+  if (!file) {
+    return showToast("Select a PDF file.");
+  }
+
+  if (file.size > 150 * 1024) {
+    return showToast("PDF must be below 150 KB.");
+  }
+
+  showToast(
+    "PDF selected. Automatic roster reading is not connected yet."
+  );
+});
+
+
+/* =========================================================
+   30. MODAL SYSTEM
+========================================================= */
+
+function openModal(title, html) {
   setText("modalTitle", title);
 
-  $("modalBody").innerHTML = html;
+  if ($("modalBody")) {
+    $("modalBody").innerHTML = html;
+  }
 
-  $("modalBackdrop").classList.remove("hidden");
+  $("modalBackdrop")?.classList.remove("hidden");
 }
 
-$("modalClose")?.addEventListener("click", () => {
-  $("modalBackdrop").classList.add("hidden");
-});
+function closeModal() {
+  $("modalBackdrop")?.classList.add("hidden");
+}
+
+$("modalClose")?.addEventListener("click", closeModal);
 
 $("modalBackdrop")?.addEventListener("click", event => {
-  if (event.target === $("modalBackdrop")) {
-    $("modalBackdrop").classList.add("hidden");
+  if (event.target.id === "modalBackdrop") {
+    closeModal();
   }
 });
 
 
 /* =========================================================
-   45. INITIAL STARTUP
+   31. SCROLL EFFECT
 ========================================================= */
 
-(function initializeApp() {
-  const user = currentUser();
+window.addEventListener("scroll", () => {
+  document.body.classList.toggle(
+    "page-scrolled",
+    window.scrollY > 60
+  );
+}, { passive: true });
 
-  if (user) {
-    openApp();
-  } else {
-    showLoginScreen();
+
+/* =========================================================
+   32. DATE AND INITIAL STATUS
+========================================================= */
+
+async function checkBackend() {
+  try {
+    const result = await api("/api/status");
+
+    console.log(result.message);
+
+  } catch (error) {
+    console.warn("Backend connection issue:", error.message);
   }
+}
 
-  showAuth("login");
-})();
+
+/* =========================================================
+   33. INITIALIZE APPLICATION
+========================================================= */
+
+async function initializeNexstudy() {
+  console.log("NEXSTUDY initializing...");
+
+  await checkBackend();
+
+  await restoreSession();
+
+  console.log("NEXSTUDY ready.");
+}
+
+document.addEventListener("DOMContentLoaded", initializeNexstudy);

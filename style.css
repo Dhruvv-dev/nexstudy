@@ -883,32 +883,103 @@ select option { color: #f2ead9; background: #1f3d2b; }
   z-index: 1;
 }
 
+/* Dark typography inside login card */
+.auth-card h2,
+.auth-card h3 {
+  color: #0b1a11 !important;
+  font-weight: 800;
+}
+
+.auth-card .eyebrow {
+  color: #143020 !important;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.auth-card label {
+  color: #0b1a11 !important;
+  font-weight: 700;
+}
+
 /* Login tabs */
 .auth-card .auth-tabs {
   background: rgba(20, 45, 30, 0.35);
   border: 1px solid rgba(255,255,255,0.12);
 }
 
+.auth-card .tab {
+  color: #0b1a11 !important;
+  font-weight: 700;
+}
+
 .auth-card .tab.active {
   background: rgba(232,220,196,0.22);
-  color: #fff8e9;
+  color: #0b1a11 !important;
+  font-weight: 800;
 }
 
-/* Inputs */
-.auth-card input {
-  background: rgba(255,255,255,0.12);
+/* Role choice */
+.auth-card .role-choice {
+  color: #0b1a11 !important;
+  font-weight: 700;
+  background: rgba(255,255,255,0.18);
   border: 1px solid rgba(255,255,255,0.25);
-  color: #fff8e9;
 }
 
-.auth-card input::placeholder {
-  color: rgba(255,255,255,0.65);
+.auth-card .role-choice.active {
+  color: #0b1a11 !important;
+  font-weight: 800;
+  background: rgba(232,220,196,0.3);
+  border-color: rgba(232,220,196,0.5);
+}
+
+/* Form Inputs - dark text and dark placeholder with transparent glass */
+.auth-card input,
+.auth-card select,
+.auth-card textarea {
+  background: rgba(255, 255, 255, 0.18) !important;
+  border: 1px solid rgba(255, 255, 255, 0.32) !important;
+  color: #0b1a11 !important;
+  font-weight: 700;
+}
+
+.auth-card input::placeholder,
+.auth-card textarea::placeholder {
+  color: rgba(11, 26, 17, 0.72) !important;
+  font-weight: 600;
+}
+
+.auth-card input:focus,
+.auth-card select:focus,
+.auth-card textarea:focus {
+  background: rgba(255, 255, 255, 0.3) !important;
+  border-color: #0b1a11 !important;
+  color: #0b1a11 !important;
+}
+
+/* Muted text & Helper links */
+.auth-card .muted {
+  color: #0b1a11 !important;
+  font-weight: 700;
+}
+
+.auth-card .text-btn {
+  color: #0b1a11 !important;
+  font-weight: 800;
+  text-decoration: underline;
+}
+
+.auth-card .tiny-note {
+  color: #143020 !important;
+  border-top: 1px solid rgba(20, 48, 32, 0.15) !important;
+  font-weight: 600;
 }
 
 /* Primary button */
 .auth-card .btn.primary {
-  background: linear-gradient(120deg, #e8dcc4, #b8c7a7);
-  color: #1f3d2b;
+  background: linear-gradient(120deg, #e8dcc4, #b8c7a7) !important;
+  color: #1f3d2b !important;
+  font-weight: 800;
 }
 
 /* Mobile */
